@@ -31,23 +31,35 @@ def allocate_jobs(baseyear_taz_controls, settings, buildings, parcels):
             jobs += [[sector_id, sector_name, taz, -1]] * num
 
     df = pd.DataFrame(jobs, columns=[
-        'sector_id', 'empsix', 'taz', 'building_id'])
+        'sector_id', 'empsix', 'taz', 'bldg_id'])
 
-    zone_id = misc.reindex(parcels.zone_id, buildings.parcel_id)
+    # Originally used misc.reindex, but wouldn't work for some reason, so now
+    # it's explicitly done here
+    zone_id = pd.merge(buildings.to_frame()[["PARCEL_ID"]], 
+                       parcels.to_frame()[["PARCEL_ID", "ZONE_ID"]],
+                       on='PARCEL_ID',
+                       how="left")['ZONE_ID']
 
     # just do random assignment weighted by job spaces - we'll then
     # fill in the job_spaces if overfilled in the next step (code
     # has existed in urbansim for a while)
     for taz, cnt in df.groupby('taz').size().iteritems():
 
-        potential_add_locations = buildings.non_residential_sqft[
+        print ""
+        print zone_id
+        print ""
+        print taz
+        print ""
+        
+        potential_add_locations = buildings.nres_sqft[
             (zone_id == taz) &
-            (buildings.non_residential_sqft > 0)]
+            (buildings.nres_sqft > 0)]
 
         if len(potential_add_locations) == 0:
             # if no non-res buildings, put jobs in res buildings
-            potential_add_locations = buildings.building_sqft[
+            potential_add_locations = buildings.bldg_sqft[
                 zone_id == taz]
+
 
         weights = potential_add_locations / potential_add_locations.sum()
 
@@ -88,8 +100,8 @@ def move_jobs_from_portola_to_san_mateo_county(parcels, buildings, jobs_df):
 
 
 @orca.step()
-def preproc_jobs(store, baseyear_taz_controls, settings, parcels):
-    buildings = store['buildings']
+def preproc_jobs(store, baseyear_taz_controls, settings, parcels, buildings):
+#    buildings = store['buildings']
 
     jobs = allocate_jobs(baseyear_taz_controls, settings, buildings, parcels)
     jobs = move_jobs_from_portola_to_san_mateo_county(parcels, buildings, jobs)

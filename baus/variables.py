@@ -119,7 +119,7 @@ def vacant_units(residential_units, households):
 
 @orca.column('buildings', cache=True)
 def general_type(buildings, building_type_map):
-    return buildings.building_type.map(building_type_map)
+    return buildings.bldgt_id.map(building_type_map)
 
 
 # I want to round this cause otherwise we'll be underfilling job spaces
@@ -128,7 +128,7 @@ def general_type(buildings, building_type_map):
 # the sqft_per_job table
 @orca.column('buildings', cache=True)
 def job_spaces(buildings):
-    return (buildings.non_residential_sqft /
+    return (buildings.nres_sqft /
             buildings.sqft_per_job).fillna(0).round().astype('int')
 
 
@@ -142,7 +142,7 @@ def vacant_job_spaces(buildings, jobs):
 @orca.column('buildings')
 def vacant_res_units(buildings, households):
     s = households.building_id[households.building_id != -1]
-    return buildings.residential_units.sub(
+    return buildings.res_units.sub(
         s.value_counts(), fill_value=0).astype('int')
 
 
@@ -150,7 +150,7 @@ def vacant_res_units(buildings, households):
 def sqft_per_job(buildings, building_sqft_per_job, superdistricts,
                  taz_geography):
     sqft_per_job = buildings.\
-        building_type.fillna("O").map(building_sqft_per_job)
+        bldgt_id.fillna("O").map(building_sqft_per_job)
 
     # this factor changes all sqft per job according to which superdistrict
     # the building is in - this is so denser areas can have lower sqft
@@ -171,7 +171,7 @@ def building_age(buildings, year):
 
 @orca.column('buildings')
 def price_per_sqft(buildings):
-    s = buildings.redfin_sale_price / buildings.sqft_per_unit
+    s = buildings.sale_price / buildings.sqft_per_unit
     # not a huge fan of this.  it's an error to have nas in rsh_estimate even
     # though nas will be filtered out by the hedonic - error should happen
     # after filters are applied
@@ -180,7 +180,7 @@ def price_per_sqft(buildings):
 
 @orca.column('buildings', cache=True)
 def transit_type(buildings, parcels_geography):
-    return misc.reindex(parcels_geography.tpp_id, buildings.parcel_id).\
+    return misc.reindex(parcels_geography.tpp_id, buildings.PARCEL_ID).\
         reindex(buildings.index).fillna('none')
 
 
@@ -191,30 +191,30 @@ def unit_price(buildings):
 
 @orca.column('buildings', cache=True)
 def tmnode_id(buildings, parcels):
-    return misc.reindex(parcels.tmnode_id, buildings.parcel_id)
+    return misc.reindex(parcels.tmnode_id, buildings.PARCEL_ID)
 
 
 @orca.column('buildings')
 def juris_ave_income(parcels, buildings):
-    return misc.reindex(parcels.juris_ave_income, buildings.parcel_id)
+    return misc.reindex(parcels.juris_ave_income, buildings.PARCEL_ID)
 
 
 @orca.column('buildings', cache=True)
 def is_sanfran(parcels, buildings):
-    return misc.reindex(parcels.is_sanfran, buildings.parcel_id)
+    return misc.reindex(parcels.is_sanfran, buildings.PARCEL_ID)
 
 
 @orca.column('buildings', cache=True)
 def sqft_per_unit(buildings):
-    return (buildings.building_sqft /
-            buildings.residential_units.replace(0, 1)).clip(400, 6000)
+    return (buildings.bldg_sqft /
+            buildings.res_units.replace(0, 1)).clip(400, 6000)
 
 
 @orca.column('buildings', cache=True)
 def modern_condo(buildings):
     # this is to try and differentiate between new construction
     # in the city vs in the burbs
-    return ((buildings.year_built > 2000) * (buildings.building_type == "HM"))\
+    return ((buildings.year_built > 2000) * (buildings.bldgt_id == "HM"))\
         .astype('int')
 
 
@@ -324,7 +324,7 @@ def retail_ratio(parcels, nodes):
 # attribute on the buildings
 @orca.column('parcels', cache=True)
 def stories(buildings):
-    return buildings.stories.groupby(buildings.parcel_id).max()
+    return buildings.stories.groupby(buildings.PARCEL_ID).max()
 
 
 @orca.column('parcels', cache=True)
@@ -503,8 +503,8 @@ def parcel_is_allowed(form):
 
 @orca.column('parcels')
 def first_building_type(buildings, parcels):
-    df = buildings.to_frame(columns=['building_type', 'parcel_id'])
-    return df.groupby('parcel_id').building_type.first()
+    df = buildings.to_frame(columns=['bldgt_id', 'PARCEL_ID'])
+    return df.groupby('PARCEL_ID').bldgt_id.first()
 
 
 @orca.injectable(autocall=False)
@@ -532,7 +532,7 @@ def juris_ave_income(households, buildings, parcels_geography, parcels):
 # missing values with 1800 - for use with development limits
 @orca.column('parcels')
 def newest_building(parcels, buildings):
-    return buildings.year_built.groupby(buildings.parcel_id).max().\
+    return buildings.year_built.groupby(buildings.PARCEL_ID).max().\
         reindex(parcels.index).fillna(1800)
 
 
@@ -576,7 +576,7 @@ def parcel_rules(parcels):
 
 @orca.column('parcels', cache=True)
 def total_non_residential_sqft(parcels, buildings):
-    return buildings.non_residential_sqft.groupby(buildings.parcel_id).sum().\
+    return buildings.nres_sqft.groupby(buildings.PARCEL_ID).sum().\
         reindex(parcels.index).fillna(0)
 
 
@@ -659,7 +659,7 @@ def max_dua(parcels_zoning_calculations, parcels, scenario, settings):
 
 @orca.column('parcels')
 def general_type(parcels, buildings):
-    s = buildings.general_type.groupby(buildings.parcel_id).first()
+    s = buildings.general_type.groupby(buildings.PARCEL_ID).first()
     return s.reindex(parcels.index).fillna("Vacant")
 
 
@@ -732,7 +732,7 @@ def price_shifters(parcels, settings):
 
 @orca.column('parcels', cache=True)
 def node_id(parcels, net):
-    s = net["walk"].get_node_ids(parcels.x, parcels.y)
+    s = net["walk"].get_node_ids(parcels.X, parcels.Y)
     fill_val = s.value_counts().index[0]
     s = s.reindex(parcels.index).fillna(fill_val).astype('int')
     return s
@@ -740,7 +740,7 @@ def node_id(parcels, net):
 
 @orca.column('parcels', cache=True)
 def tmnode_id(parcels, net):
-    s = net["drive"].get_node_ids(parcels.x, parcels.y)
+    s = net["drive"].get_node_ids(parcels.X, parcels.Y)
     fill_val = s.value_counts().index[0]
     s = s.reindex(parcels.index).fillna(fill_val).astype('int')
     return s

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import geopandas as gp
 import os
 from urbansim_defaults import datasources
 from urbansim_defaults import utils
@@ -14,6 +15,7 @@ from utils import nearest_neighbor
 # TABLES AND INJECTABLES
 #####################
 
+DATA_DIR = "myData"
 
 @orca.injectable('year')
 def year():
@@ -35,9 +37,9 @@ def final_year():
     return 2040
 
 
-@orca.injectable(cache=True)
-def store(settings):
-    return pd.HDFStore(os.path.join(misc.data_dir(), settings["store"]))
+#@orca.injectable(cache=True)
+#def store(settings):
+#    return pd.HDFStore(os.path.join(misc.data_dir(), settings["store"]))
 
 
 @orca.injectable(cache=True)
@@ -101,32 +103,32 @@ def building_sqft_per_job(settings):
 
 @orca.step()
 def fetch_from_s3(settings):
-    import boto
+#    import boto
     # fetch files from s3 based on config in settings.yaml
     s3_settings = settings["s3_settings"]
 
-    conn = boto.connect_s3()
-    bucket = conn.get_bucket(s3_settings["bucket"], validate=False)
+#    conn = boto.connect_s3()
+#    bucket = conn.get_bucket(s3_settings["bucket"], validate=False)
 
     for file in s3_settings["files"]:
-        file = os.path.join("data", file)
-        if os.path.exists(file):
-            continue
-        print "Downloading " + file
-        key = bucket.get_key(file, validate=False)
-        key.get_contents_to_filename(file)
+        file = os.path.join(DATA_DIR, file)
+#        if os.path.exists(file):
+#            continue
+#        print "Downloading " + file
+#        key = bucket.get_key(file, validate=False)
+#        key.get_contents_to_filename(file)
 
 
 # key locations in the Bay Area for use as attractions in the models
 @orca.table(cache=True)
 def landmarks():
-    return pd.read_csv(os.path.join(misc.data_dir(), 'landmarks.csv'),
+    return pd.read_csv(os.path.join(DATA_DIR, 'landmarks.csv'),
                        index_col="name")
 
 
 @orca.table(cache=True)
 def baseyear_taz_controls():
-    return pd.read_csv(os.path.join("data",
+    return pd.read_csv(os.path.join(DATA_DIR,
                        "baseyear_taz_controls.csv"), index_col="taz1454")
 
 
@@ -139,7 +141,7 @@ def base_year_summary_taz():
 
 # non-residential rent data
 @orca.table(cache=True)
-def costar(store, parcels):
+def costar(parcels):
     df = pd.read_csv(os.path.join(misc.data_dir(), '2015_08_29_costar.csv'))
 
     df["PropertyType"] = df.PropertyType.replace("General Retail", "Retail")
@@ -161,14 +163,14 @@ def costar(store, parcels):
 
 @orca.table(cache=True)
 def zoning_lookup():
-    return pd.read_csv(os.path.join(misc.data_dir(), "zoning_lookup.csv"),
+    return pd.read_csv(os.path.join(DATA_DIR, "zoning_lookup.csv"),
                        index_col='id')
 
 
 # zoning for use in the "baseline" scenario
 @orca.table(cache=True)
 def zoning_baseline(parcels, zoning_lookup, settings):
-    df = pd.read_csv(os.path.join(misc.data_dir(),
+    df = pd.read_csv(os.path.join(DATA_DIR,
                      "2015_12_21_zoning_parcels.csv"),
                      index_col="geom_id")
     df = pd.merge(df, zoning_lookup.to_frame(),
@@ -180,14 +182,14 @@ def zoning_baseline(parcels, zoning_lookup, settings):
 
 @orca.table(cache=True)
 def new_tpp_id():
-    return pd.read_csv(os.path.join(misc.data_dir(), "tpp_id_2016.zip"),
+    return pd.read_csv(os.path.join(DATA_DIR, "tpp_id_2016.zip"),
                        index_col="parcel_id")
 
 
 @orca.table(cache=True)
 def zoning_scenario(parcels_geography, scenario, settings):
     scenario_zoning = pd.read_csv(
-        os.path.join(misc.data_dir(), 'zoning_mods_%s.csv' % scenario))
+        os.path.join(DATA_DIR, 'zoning_mods_%s.csv' % scenario))
 
     for k in settings["building_type_map"].keys():
         scenario_zoning[k] = np.nan
@@ -208,9 +210,14 @@ def zoning_scenario(parcels_geography, scenario, settings):
                     how='left').set_index('parcel_id')
 
 
+#@orca.table(cache=True)
+#def parcels(store):
+#    return store['parcels']
+
 @orca.table(cache=True)
-def parcels(store):
-    return store['parcels']
+def parcels():
+    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                                                  '09_01_2015_parcel_berkeley.shp'))
 
 
 @orca.table(cache=True)
@@ -232,13 +239,13 @@ def parcel_rejections():
 @orca.table(cache=True)
 def parcels_geography(parcels):
     df = pd.read_csv(
-        os.path.join(misc.data_dir(), "02_01_2016_parcels_geography.csv"),
+        os.path.join(DATA_DIR, "02_01_2016_parcels_geography.csv"),
         index_col="geom_id")
     df = geom_id_to_parcel_id(df, parcels)
 
     # this will be used to map juris id to name
     juris_name = pd.read_csv(
-        os.path.join(misc.data_dir(), "census_id_to_name.csv"),
+        os.path.join(DATA_DIR, "census_id_to_name.csv"),
         index_col="census_id").name10
 
     df["juris_name"] = df.jurisdiction_id.map(juris_name)
@@ -260,7 +267,7 @@ def parcels_geography(parcels):
 
 @orca.table(cache=True)
 def manual_edits():
-    return pd.read_csv(os.path.join(misc.data_dir(), "manual_edits.csv"))
+    return pd.read_csv(os.path.join(DATA_DIR, "manual_edits.csv"))
 
 
 def reprocess_dev_projects(df):
@@ -280,7 +287,7 @@ def reprocess_dev_projects(df):
 
 # shared between demolish and build tables below
 def get_dev_projects_table(scenario, parcels):
-    df = pd.read_csv(os.path.join(misc.data_dir(), "development_projects.csv"))
+    df = pd.read_csv(os.path.join(DATA_DIR, "development_projects.csv"))
     df = reprocess_dev_projects(df)
 
     # this filters project by scenario
@@ -351,37 +358,32 @@ def development_projects(parcels, settings, scenario):
     return df
 
 
-def print_error_if_not_available(store, table):
-    if table not in store:
-        raise Exception(
-            "%s not found in store - you need to preprocess" % table +
-            " the data with:\n  python baus.py --mode preprocessing -c")
-    return store[table]
+@orca.table(cache=True)
+def jobs():
+    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                       '09_01_2015_job_berkeley.shp'))
 
 
 @orca.table(cache=True)
-def jobs(store):
-    return print_error_if_not_available(store, 'jobs_preproc')
+def households():
+    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                       '09_01_2015_households_berkeley.shp'))
 
 
 @orca.table(cache=True)
-def households(store):
-    return print_error_if_not_available(store, 'households_preproc')
+def buildings():
+    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                       '09_01_2015_building_berkeley.shp'))
 
 
-@orca.table(cache=True)
-def buildings(store):
-    return print_error_if_not_available(store, 'buildings_preproc')
-
-
-@orca.table(cache=True)
-def residential_units(store):
-    return print_error_if_not_available(store, 'residential_units_preproc')
+#@orca.table(cache=True)
+#def residential_units(store):
+#    return print_error_if_not_available(store, 'residential_units_preproc')
 
 
 @orca.table(cache=True)
 def household_controls_unstacked():
-    return pd.read_csv(os.path.join(misc.data_dir(), "household_controls.csv"),
+    return pd.read_csv(os.path.join(DATA_DIR, "household_controls.csv"),
                        index_col='year')
 
 
@@ -402,7 +404,7 @@ def household_controls(household_controls_unstacked):
 @orca.table(cache=True)
 def employment_controls_unstacked():
     return pd.read_csv(
-        os.path.join(misc.data_dir(), "employment_controls.csv"),
+        os.path.join(DATA_DIR, "employment_controls.csv"),
         index_col='year')
 
 
@@ -423,7 +425,7 @@ def employment_controls(employment_controls_unstacked):
 @orca.table(cache=True)
 def zone_forecast_inputs():
     return pd.read_csv(
-        os.path.join(misc.data_dir(), "zone_forecast_inputs.csv"),
+        os.path.join(DATA_DIR, "zone_forecast_inputs.csv"),
         index_col="zone_id")
 
 
@@ -432,26 +434,26 @@ def zone_forecast_inputs():
 @orca.table(cache=True)
 def vmt_fee_categories():
     return pd.read_csv(
-        os.path.join(misc.data_dir(), "vmt_fee_zonecats.csv"),
+        os.path.join(DATA_DIR, "vmt_fee_zonecats.csv"),
         index_col="taz")
 
 
 @orca.table(cache=True)
 def superdistricts():
     return pd.read_csv(
-        os.path.join(misc.data_dir(), "superdistricts.csv"),
+        os.path.join(DATA_DIR, "superdistricts.csv"),
         index_col="number")
 
 
 @orca.table(cache=True)
 def abag_targets():
-    return pd.read_csv(os.path.join(misc.data_dir(), "abag_targets.csv"))
+    return pd.read_csv(os.path.join(DATA_DIR, "abag_targets.csv"))
 
 
 @orca.table(cache=True)
 def taz_geography(superdistricts):
     tg = pd.read_csv(
-        os.path.join(misc.data_dir(), "taz_geography.csv"),
+        os.path.join(DATA_DIR, "taz_geography.csv"),
         index_col="zone")
 
     # we want "subregion" geography on the taz_geography table
@@ -470,16 +472,17 @@ def taz_geography(superdistricts):
 
 # these are shapes - "zones" in the bay area
 @orca.table(cache=True)
-def zones(store):
+def zones():
     # sort index so it prints out nicely when we want it to
-    return store['zones'].sort_index()
+    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                       '09_01_2015_zones_berkeley.shp')).sort_index()
 
 
 # this specifies the relationships between tables
-orca.broadcast('buildings', 'residential_units', cast_index=True,
-               onto_on='building_id')
-orca.broadcast('residential_units', 'households', cast_index=True,
-               onto_on='unit_id')
+#orca.broadcast('buildings', 'residential_units', cast_index=True,
+#               onto_on='building_id')
+#orca.broadcast('residential_units', 'households', cast_index=True,
+#               onto_on='unit_id')
 orca.broadcast('parcels_geography', 'buildings', cast_index=True,
                onto_on='parcel_id')
 # not defined in urbansim_Defaults

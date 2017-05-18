@@ -19,6 +19,9 @@ import numpy as np
 import pandas as pd
 
 
+DATA_DIR = "myData"
+
+
 @orca.step()
 def elcm_simulate(jobs, buildings, aggregations):
     buildings.local["non_residential_rent"] = \
@@ -44,7 +47,7 @@ def households_transition(households, household_controls, year, settings):
 
 @orca.table(cache=True)
 def employment_relocation_rates():
-    df = pd.read_csv(os.path.join("data", "employment_relocation_rates.csv"))
+    df = pd.read_csv(os.path.join(DATA_DIR, "employment_relocation_rates.csv"))
     df = df.set_index("zone_id").stack().reset_index()
     df.columns = ["zone_id", "empsix", "rate"]
     return df
@@ -133,7 +136,7 @@ def _proportional_jobs_model(
 
 @orca.step()
 def accessory_units(year, buildings, parcels):
-    add_units = pd.read_csv("data/accessory_units.csv",
+    add_units = pd.read_csv("myData/accessory_units.csv",
                             index_col="juris")[str(year)]
     buildings_juris = misc.reindex(parcels.juris, buildings.parcel_id)
     res_buildings = buildings_juris[buildings.general_type == "Residential"]
@@ -148,7 +151,7 @@ def proportional_elcm(jobs, households, buildings, parcels,
                       year, run_number):
 
     juris_assumptions_df = pd.read_csv(os.path.join(
-        "data",
+        DATA_DIR,
         "juris_assumptions.csv"
     ), index_col="juris")
 
@@ -204,7 +207,7 @@ def proportional_elcm(jobs, households, buildings, parcels,
 
     # first read the file from disk - it's small so no table source
     taz_assumptions_df = pd.read_csv(os.path.join(
-        "data",
+        DATA_DIR,
         "taz_growth_rates_gov_ed.csv"
     ), index_col="Taz")
 
@@ -333,7 +336,7 @@ def scheduled_development_events(buildings, development_projects,
         unplace_agents=['households', 'jobs'])
     new_buildings["form"] = new_buildings.building_type.map(
         settings['building_type_map']).str.lower()
-    new_buildings["job_spaces"] = new_buildings.non_residential_sqft / \
+    new_buildings["job_spaces"] = new_buildings.nres_sqft / \
         new_buildings.building_type.fillna("OF").map(building_sqft_per_job)
     new_buildings["job_spaces"] = new_buildings.job_spaces.\
         fillna(0).astype('int')
@@ -451,7 +454,7 @@ def residential_developer(feasibility, households, buildings, parcels, year,
 
     kwargs = settings['residential_developer']
 
-    target_vacancy = pd.read_csv("data/regional_controls.csv",
+    target_vacancy = pd.read_csv("myData/regional_controls.csv",
                                  index_col="year").loc[year].st_res_vac
 
     num_units = dev.compute_units_to_build(
@@ -762,7 +765,7 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
         print "Job spaces in res before adjustment: ", \
             buildings.job_spaces[s].sum()
         buildings.local.loc[add_sizes.index,
-                            "non_residential_sqft"] += add_sizes.values
+                            "nres_sqft"] += add_sizes.values
         print "Job spaces in res after adjustment: ",\
             buildings.job_spaces[s].sum()
 
@@ -781,12 +784,12 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
 
     # this is the key point - make these new buildings' nonres sqft equal
     # to one story of the new buildings
-    new_buildings.non_residential_sqft = new_buildings.building_sqft / \
+    new_buildings.nres_sqft = new_buildings.building_sqft / \
         new_buildings.stories * .8
 
     new_buildings["residential_units"] = 0
     new_buildings["residential_sqft"] = 0
-    new_buildings["building_sqft"] = new_buildings.non_residential_sqft
+    new_buildings["building_sqft"] = new_buildings.nres_sqft
     new_buildings["stories"] = 1
     new_buildings["building_type"] = "RB"
 
@@ -798,7 +801,7 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
     new_buildings = new_buildings[ratio.values > ratio.median()]
 
     print "Adding %d sqft of ground floor retail in %d locations" % \
-        (new_buildings.non_residential_sqft.sum(), len(new_buildings))
+        (new_buildings.nres_sqft.sum(), len(new_buildings))
 
     all_buildings = dev.merge(old_buildings, new_buildings)
     orca.add_table("buildings", all_buildings)
@@ -807,7 +810,7 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
     # this is sqft per job for retail use - this is all rather
     # ad-hoc so I'm hard-coding
     new_buildings["job_spaces"] = \
-        (new_buildings.non_residential_sqft / 445.0).astype('int')
+        (new_buildings.nres_sqft / 445.0).astype('int')
     new_buildings["net_units"] = new_buildings.job_spaces
     summary.add_parcel_output(new_buildings)
 
@@ -870,7 +873,7 @@ def static_parcel_proportional_job_allocation(static_parcels):
 
 
 def make_network(name, weight_col, max_distance):
-    st = pd.HDFStore(os.path.join(misc.data_dir(), name), "r")
+    st = pd.HDFStore(os.path.join(DATA_DIR, name), "r")
     nodes, edges = st.nodes, st.edges
     net = pdna.Network(nodes["x"], nodes["y"], edges["from"], edges["to"],
                        edges[[weight_col]])
@@ -918,7 +921,7 @@ def local_pois(settings):
 
     cols = {}
 
-    locations = pd.read_csv(os.path.join(misc.data_dir(), 'bart_stations.csv'))
+    locations = pd.read_csv(os.path.join(DATA_DIR, 'bart_stations.csv'))
     n.set_pois("tmp", locations.lng, locations.lat)
     cols["bartdist"] = n.nearest_pois(3000, "tmp", num_pois=1)[1]
 
@@ -948,7 +951,7 @@ def regional_vars(net):
     nodes = networks.from_yaml(net["drive"], "regional_vars.yaml")
     nodes = nodes.fillna(0)
 
-    nodes2 = pd.read_csv('data/regional_poi_distances.csv',
+    nodes2 = pd.read_csv('myData/regional_poi_distances.csv',
                          index_col="tmnode_id")
     nodes = pd.concat([nodes, nodes2], axis=1)
 

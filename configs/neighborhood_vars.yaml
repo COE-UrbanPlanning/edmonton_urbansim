@@ -15,7 +15,7 @@ variable_definitions:
     - general_type == "Retail"
     name: retail_sqft_3000
     radius: 3000
-    varname: non_residential_sqft
+    varname: nres_sqft
 
   - aggregation: sum
     dataframe: households
@@ -26,13 +26,13 @@ variable_definitions:
 
   - name: residential_units_500
     dataframe: buildings
-    varname: residential_units
+    varname: res_units
     radius: 500
     apply: np.log1p
 
   - name: residential_units_1500
     dataframe: buildings
-    varname: residential_units
+    varname: res_units
     radius: 1500
     apply: np.log1p
 
@@ -82,7 +82,7 @@ variable_definitions:
 
   - name: population
     filters:
-    - building_id != -1
+    - bldg_id != -1
     dataframe: households
     varname: persons
     radius: 1500
@@ -91,7 +91,7 @@ variable_definitions:
   - name: poor
     dataframe: households
     filters:
-    - income < 40000 and building_id != -1
+    - income < 40000 and bldg_id != -1
     varname: persons
     radius: 1500
     apply: np.log1p
@@ -99,7 +99,7 @@ variable_definitions:
   - name: renters
     dataframe: households
     filters:
-    - tenure == 2 and building_id != -1
+    - tenure == 2 and bldg_id != -1
     radius: 1500
     apply: np.log1p
 
@@ -113,7 +113,7 @@ variable_definitions:
   - name: ave_hhsize
     dataframe: households
     filters:
-    - building_id != -1
+    - bldg_id != -1
     varname: persons
     radius: 1500
     aggregation: average
@@ -122,14 +122,14 @@ variable_definitions:
 
   - name: jobs_500
     filters:
-    - building_id != -1
+    - bldg_id != -1
     dataframe: jobs
     radius: 500
     apply: np.log1p
 
   - name: jobs_1500
     filters:
-    - building_id != -1
+    - bldg_id != -1
     dataframe: jobs
     radius: 1500
     apply: np.log1p
@@ -137,7 +137,7 @@ variable_definitions:
   - name: ave_income_1500
     aggregation: 75pct
     filters:
-    - building_id != -1
+    - bldg_id != -1
     dataframe: households
     varname: income
     radius: 1500
@@ -147,7 +147,7 @@ variable_definitions:
   - name: ave_income_500
     aggregation: median
     filters:
-    - building_id != -1
+    - bldg_id != -1
     dataframe: households
     varname: income
     radius: 500
