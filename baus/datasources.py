@@ -37,9 +37,9 @@ def final_year():
     return 2040
 
 
-#@orca.injectable(cache=True)
-#def store(settings):
-#    return pd.HDFStore(os.path.join(misc.data_dir(), settings["store"]))
+@orca.injectable(cache=True)
+def store(settings):
+    return pd.HDFStore(os.path.join(DATA_DIR, settings["store"]))
 
 
 @orca.injectable(cache=True)

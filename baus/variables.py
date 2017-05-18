@@ -26,6 +26,11 @@ def tmnode_id(households, buildings):
     return misc.reindex(buildings.tmnode_id, households.building_id)
 
 
+@orca.column('households', cache=True)
+def building_id(households):
+    return households.bldg_id
+
+
 #####################
 # COSTAR VARIABLES
 #####################
@@ -85,6 +90,11 @@ def naics(jobs):
 @orca.column('jobs', cache=True)
 def empsix_id(jobs, settings):
     return jobs.empsix.map(settings['empsix_name_to_id'])
+
+
+@orca.column('jobs', cache=True)
+def building_id(jobs, settings):
+    return jobs.bldg_id
 
 
 #############################
@@ -287,6 +297,26 @@ def residential_price(buildings, residential_units, settings):
     return means.max(axis=1)
 
 
+@orca.column('buildings', cache=True)
+def parcel_id(buildings):
+    return buildings.PARCEL_ID
+
+
+@orca.column('buildings', cache=True)
+def residential_units(buildings):
+    return buildings.res_units
+
+
+@orca.column('buildings', cache=True)
+def building_type_id(buildings):
+    return buildings.bldgt_id
+
+
+@orca.column('buildings', cache=True)
+def non_residential_sqft(buildings):
+    return buildings.nres_sqft
+
+
 #####################
 # NODES VARIABLES
 #####################
@@ -457,7 +487,11 @@ def parcel_average_price(use, quantile=.5):
 
     return misc.reindex(orca.get_table('nodes')[use],
                         orca.get_table('parcels').node_id)
-
+    
+    
+@orca.column("parcels", cache=True)
+def shape_area(parcels):
+    return parcels.ACRES
 
 #############################
 # Functions for Checking
