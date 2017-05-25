@@ -53,7 +53,10 @@ reconcile_non_residential_sqft_and_jobs: True
 
 
 # convert square meters to square feet
-parcel_size_factor: 10.764
+#parcel_size_factor: 10.764
+
+# conver acres to square feet
+parcel_size_factor: 43560
 
 
 # this is really because we don't have limits right now for retail

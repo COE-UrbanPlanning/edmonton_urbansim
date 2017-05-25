@@ -304,7 +304,7 @@ def parcel_id(buildings):
 
 @orca.column('buildings', cache=True)
 def residential_units(buildings):
-    return buildings.res_units
+    return buildings.res_units.fillna(0)
 
 
 @orca.column('buildings', cache=True)
@@ -315,6 +315,11 @@ def building_type_id(buildings):
 @orca.column('buildings', cache=True)
 def non_residential_sqft(buildings):
     return buildings.nres_sqft
+
+
+@orca.column('buildings', cache=True)
+def building_sqft(buildings):
+    return buildings.bldg_sqft
 
 
 #####################
@@ -348,6 +353,11 @@ def sdem(development_projects, parcels):
 @orca.column('parcels')
 def retail_ratio(parcels, nodes):
     return misc.reindex(nodes.retail_ratio, parcels.node_id)
+
+
+@orca.column('parcels', cache=True)
+def zone_id(parcels):
+    return parcels.ZONE_ID
 
 
 # the stories attributes on parcels will be the max story
@@ -492,6 +502,27 @@ def parcel_average_price(use, quantile=.5):
 @orca.column("parcels", cache=True)
 def shape_area(parcels):
     return parcels.ACRES
+
+
+@orca.column("parcels", cache=True)
+def geom_id(parcels):
+    return parcels.GEOM_ID
+
+
+@orca.column("parcels", cache=True)
+def x(parcels):
+    return parcels.X
+
+
+@orca.column("parcels", cache=True)
+def y(parcels):
+    return parcels.Y
+
+
+@orca.column('parcels', cache=True)
+def county_id(parcels):
+    return parcels.COUNTY_ID
+
 
 #############################
 # Functions for Checking
