@@ -152,7 +152,7 @@ def vacant_job_spaces(buildings, jobs):
 @orca.column('buildings')
 def vacant_res_units(buildings, households):
     s = households.building_id[households.building_id != -1]
-    return buildings.res_units.sub(
+    return buildings.res_units.fillna(0).sub(
         s.value_counts(), fill_value=0).astype('int')
 
 
@@ -244,7 +244,7 @@ def vmt_res_cat(buildings, vmt_fee_categories):
 
 
 @orca.column('buildings', cache=True)
-def residential_price(buildings, residential_units, settings):
+def residential_price(store, buildings, settings):
     """
     This was originally an orca.step in the ual code.  This allows model steps
     like 'price_vars' and 'feasibility' to read directly from the buildings
@@ -284,9 +284,10 @@ def residential_price(buildings, residential_units, settings):
             ColumnSpec('residential_price', min=0)),
         InjectableSpec('settings', min=0, max=1)))
     '''
+    residential_units_preproc = store['residential_units_preproc']
 
     cols = ['building_id', 'unit_residential_price', 'unit_residential_rent']
-    means = residential_units.to_frame(cols).groupby(['building_id']).mean()
+    means = residential_units_preproc[cols].groupby(['building_id']).mean()
 
     # Convert monthly rent to equivalent sale price
     cap_rate = settings.get('cap_rate')
@@ -322,6 +323,25 @@ def building_sqft(buildings):
     return buildings.bldg_sqft
 
 
+@orca.column('buildings', cache=True)
+def year_built(buildings):
+    return buildings.bld_year
+
+
+@orca.column('buildings', cache=True)
+def building_type(buildings):
+    return buildings.bldgt_id
+
+@orca.column('buildings', cache=True)
+def residential_sqft(buildings):
+    return buildings.res_sqft
+
+
+@orca.column('buildings', cache=True)
+def redfin_sale_year(buildings):
+    return buildings.redf_year
+
+
 #####################
 # NODES VARIABLES
 #####################
@@ -330,6 +350,11 @@ def building_sqft(buildings):
 # these are computed outcomes of accessibility variables
 @orca.column('nodes')
 def retail_ratio(nodes):
+    # prevent errors
+    if ('sum_income_3000' not in orca.get_table('nodes').columns or 
+            'retail_sqft_3000' not in orca.get_table('nodes')):
+        orca.run(['neighborhood_vars', 'price_vars'])
+        
     # then compute the ratio of income to retail sqft - a high number here
     # indicates an underserved market
     return nodes.sum_income_3000 / nodes.retail_sqft_3000.clip(lower=1)
@@ -476,8 +501,22 @@ def ave_sqft_per_unit(parcels, zones, settings):
 
 # these are actually functions that take parameters,
 # but are parcel-related so are defined here
+# NOTE: This function might be totally broken due to the use of the nodes 
+# table, which was not being properly defined as of the writing of this comment
 @orca.injectable("parcel_sales_price_sqft_func", autocall=False)
 def parcel_average_price(use, quantile=.5):
+    if 'nodes' not in orca.list_tables():
+        # just to keep from erroring
+        print "WARNING: Using potentially broken function parcel_average_price"
+        return pd.Series(0, orca.get_table('parcels').index)
+    
+    if use not in orca.get_table('nodes').columns:
+        orca.run(['neighborhood_vars', 'price_vars'])
+        if use not in orca.get_table('nodes').columns:
+            # just to keep from erroring
+            print "WARNING: Using potentially broken function parcel_average_price"
+            return pd.Series(0, orca.get_table('parcels').index)
+    
     if use == "residential":
         # get node price average and put it on parcels
         s = misc.reindex(orca.get_table('nodes')[use],
@@ -490,10 +529,6 @@ def parcel_average_price(use, quantile=.5):
 
         # just to make sure we're in a reasonable range
         return s.fillna(0).clip(150, 1250)
-
-    if 'nodes' not in orca.list_tables():
-        # just to keep from erroring
-        return pd.Series(0, orca.get_table('parcels').index)
 
     return misc.reindex(orca.get_table('nodes')[use],
                         orca.get_table('parcels').node_id)

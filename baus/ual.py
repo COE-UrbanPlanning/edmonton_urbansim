@@ -99,6 +99,8 @@ def match_households_to_units(households, residential_units):
     units = residential_units
     hh = households
 
+#    print hh.building_id
+
     # This code block is from Fletcher
     unit_lookup = units.reset_index().set_index(['building_id', 'unit_num'])
     hh = hh.sort_values(by=['building_id'], ascending=True)
@@ -113,7 +115,8 @@ def match_households_to_units(households, residential_units):
     indexes = [tuple(t) for t in
                hh.loc[placed, ['building_id', 'unit_num']].values]
 
-    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.values
+    # The fillna is added to make assign_tenure_to_units work. Might break things
+    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.fillna(-1).values
     hh.loc[unplaced, 'unit_id'] = -1
 
     return hh

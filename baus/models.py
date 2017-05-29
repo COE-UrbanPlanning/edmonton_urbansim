@@ -943,6 +943,9 @@ def neighborhood_vars(net):
     nodes = nodes.fillna(0)
 
     print nodes.describe()
+    print ""
+    print "neighborhood_vars"
+    print ""
     orca.add_table("nodes", nodes)
 
 
@@ -992,4 +995,7 @@ def price_vars(net):
     print nodes2.describe()
     nodes = orca.get_table('nodes')
     nodes = nodes.to_frame().join(nodes2)
+    print ""
+    print "price_vars"
+    print ""
     orca.add_table("nodes", nodes)

@@ -20,7 +20,8 @@ DATA_DIR = "myData"
 @orca.injectable('year')
 def year():
     try:
-        return orca.get_injectable("iter_var")
+        if orca.get_injectable("iter_var") is not None:
+            return orca.get_injectable("iter_var")
     except:
         pass
     # if we're not running simulation, return base year
@@ -320,9 +321,36 @@ def demolish_events(parcels, settings, scenario):
 
 
 @orca.table(cache=True)
-def development_projects(parcels, settings, scenario):
+def development_projects(parcels, settings, scenario):    
     df = get_dev_projects_table(scenario, parcels)
 
+    #take care of columns in buildings
+    for col in [
+            'res_sqft', 'res_p_sqrt', 'nres_r_ft', 'ACRES']:
+        df[col] = 0
+    df["redf_year"] = 2012  # default base year
+    df["sale_price"] = np.nan  # null sales price
+    df["bldg_sqft"] = df.building_sqft.fillna(0)
+    df["nres_sqft"] = df.non_residential_sqft.fillna(0)
+    df["res_units"] = df.residential_units.fillna(0).astype("int")
+    df["PARCEL_ID"] = df.parcel_id
+    df["APN"] = df.raw_id
+    df["COUNTY_ID"] = df.county.map(settings["reverse_county_id_map"])
+    df["DEVELOPMEN"] = df.development_projects_id
+    df["GEOM_ID"] = df.geom_id
+    df["IMPUTATION"] = "_"
+    df["X"] = df.x
+    df["Y"] = df.y
+    df["ZONE_ID"] = parcels.to_frame(columns=['GEOM_ID', 'ZONE_ID']).loc[parcels['GEOM_ID'] == df['GEOM_ID'].iloc[0], 'ZONE_ID'].iloc[0]
+    df["bld_year"] = df.year_built
+    df["bldgt_id"] = df.building_type_id
+    df["costar_r"] = None
+    df["costar_t"] = None
+    df["geometry"] = None
+    df["impr_value"] = None
+    df['sqft_unit'] = None
+    df['sale_year'] = df.last_sale_year
+    
     for col in [
             'residential_sqft', 'residential_price', 'non_residential_rent']:
         df[col] = 0
@@ -376,9 +404,9 @@ def buildings():
                        '09_01_2015_building_berkeley.shp'))
 
 
-#@orca.table(cache=True)
-#def residential_units(store):
-#    return print_error_if_not_available(store, 'residential_units_preproc')
+@orca.table(cache=True)
+def residential_units():
+    return pd.DataFrame()
 
 
 @orca.table(cache=True)
@@ -479,10 +507,10 @@ def zones():
 
 
 # this specifies the relationships between tables
-#orca.broadcast('buildings', 'residential_units', cast_index=True,
-#               onto_on='building_id')
-#orca.broadcast('residential_units', 'households', cast_index=True,
-#               onto_on='unit_id')
+orca.broadcast('buildings', 'residential_units', cast_index=True,
+               onto_on='building_id')
+orca.broadcast('residential_units', 'households', cast_index=True,
+               onto_on='unit_id')
 orca.broadcast('parcels_geography', 'buildings', cast_index=True,
                onto_on='parcel_id')
 # not defined in urbansim_Defaults

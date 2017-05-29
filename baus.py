@@ -223,8 +223,9 @@ def run_models(MODE, SCENARIO):
         orca.run([
             "preproc_jobs",
             "preproc_households",
-            "preproc_buildings",
-            "initialize_residential_units"
+            "preproc_buildings_start",
+            "initialize_residential_units",
+            "preproc_buildings_finish"
         ])
 
     elif MODE == "fetch_data":

@@ -830,6 +830,20 @@ county_id_map:
   95: Solano
   41: Marin
   55: Napa
+  
+  
+  # county ids in parcels geography (I think FIPS codes)
+reverse_county_id_map:
+  Santa Clara: 85
+  Alameda: 1
+  Contra Costa: 13
+  San Mateo: 81
+  Sonoma: 97
+  San Francisco: 75
+  Solano: 95
+  Marin: 41
+  Napa: 55
+
 
 
 # county ids for the travel model
