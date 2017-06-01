@@ -217,8 +217,10 @@ def zoning_scenario(parcels_geography, scenario, settings):
 
 @orca.table(cache=True)
 def parcels():
-    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
-                                                  '09_01_2015_parcel_berkeley.shp'))
+    df = gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                                            '09_01_2015_parcel_berkeley.shp'))
+    df.set_index('PARCEL_ID', drop=False, inplace=True)
+    return df
 
 
 @orca.table(cache=True)
@@ -243,7 +245,7 @@ def parcels_geography(parcels):
         os.path.join(DATA_DIR, "02_01_2016_parcels_geography.csv"),
         index_col="geom_id")
     df = geom_id_to_parcel_id(df, parcels)
-
+    
     # this will be used to map juris id to name
     juris_name = pd.read_csv(
         os.path.join(DATA_DIR, "census_id_to_name.csv"),
@@ -386,27 +388,33 @@ def development_projects(parcels, settings, scenario):
     return df
 
 
-@orca.table(cache=True)
-def jobs():
-    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
-                       '09_01_2015_job_berkeley.shp'))
+def check_for_preproc(store, preproc_table, filename):
+    if preproc_table not in store:
+        return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR, filename))
+    return store[preproc_table]
 
 
 @orca.table(cache=True)
-def households():
-    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
-                       '09_01_2015_households_berkeley.shp'))
+def jobs(store):
+    return check_for_preproc(store, 'jobs_preproc', 
+                             '09_01_2015_job_berkeley.shp')
 
 
 @orca.table(cache=True)
-def buildings():
-    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
-                       '09_01_2015_building_berkeley.shp'))
+def households(store):
+    return check_for_preproc(store, 'households_preproc',
+                             '09_01_2015_households_berkeley.shp')
 
 
 @orca.table(cache=True)
-def residential_units():
-    return pd.DataFrame()
+def buildings(store):
+    return check_for_preproc(store, 'buildings_preproc',
+                             '09_01_2015_building_berkeley.shp')
+
+
+@orca.table(cache=True)
+def residential_units(store):
+    return store['residential_units_preproc']
 
 
 @orca.table(cache=True)

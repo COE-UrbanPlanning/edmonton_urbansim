@@ -342,6 +342,16 @@ def redfin_sale_year(buildings):
     return buildings.redf_year
 
 
+@orca.column('buildings', cache=True)
+def non_residential_rent(buildings):
+    return buildings.nres_r_ft
+
+
+@orca.column('buildings', cache=True)
+def building_id(buildings):
+    return buildings.index
+
+
 #####################
 # NODES VARIABLES
 #####################
@@ -351,8 +361,8 @@ def redfin_sale_year(buildings):
 @orca.column('nodes')
 def retail_ratio(nodes):
     # prevent errors
-    if ('sum_income_3000' not in orca.get_table('nodes').columns or 
-            'retail_sqft_3000' not in orca.get_table('nodes')):
+    if ('sum_income_3000' not in nodes.columns or 
+            'retail_sqft_3000' not in nodes.columns):
         orca.run(['neighborhood_vars', 'price_vars'])
         
     # then compute the ratio of income to retail sqft - a high number here
@@ -616,16 +626,19 @@ def parcel_first_building_type_is(form):
 
 @orca.column('parcels')
 def juris_ave_income(households, buildings, parcels_geography, parcels):
+    
     # get frame of income and jurisdiction
     h = orca.merge_tables("households",
                           [households, buildings, parcels_geography],
                           columns=["jurisdiction_id", "income"])
+    
     # get median income by jurisdiction
     s = h.groupby(h.jurisdiction_id).income.quantile(.5)
     # map it to parcels - fill na with median for all areas
     # should probably remove the log transform and do that in the models
+    # In case median is NaN, replace NaNs with 0 for now
     return misc.reindex(s, parcels_geography.jurisdiction_id).\
-        reindex(parcels.index).fillna(s.median()).apply(np.log1p)
+        reindex(parcels.index).fillna(s.median()).apply(np.log1p).fillna(0)
 
 
 # returns the newest building on the land and fills

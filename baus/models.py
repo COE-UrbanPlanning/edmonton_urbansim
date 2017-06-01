@@ -26,7 +26,10 @@ DATA_DIR = "myData"
 def elcm_simulate(jobs, buildings, aggregations):
     buildings.local["non_residential_rent"] = \
         buildings.local.non_residential_rent.fillna(0)
-    return utils.lcm_simulate("elcm.yaml", jobs, buildings, aggregations,
+    return utils.lcm_simulate("elcm.yaml", 
+                              orca.orca.DataFrameWrapper('jobs_for_sim', 
+                                                         jobs.to_frame().dropna(subset=['building_id'])), 
+                              buildings, aggregations,
                               "building_id", "job_spaces",
                               "vacant_job_spaces", cast=True)
 
@@ -936,16 +939,13 @@ def local_pois(settings):
 
 
 @orca.step()
-def neighborhood_vars(net):
+def neighborhood_vars(net, jobs):
     nodes = networks.from_yaml(net["walk"], "neighborhood_vars.yaml")
     nodes = nodes.replace(-np.inf, np.nan)
     nodes = nodes.replace(np.inf, np.nan)
     nodes = nodes.fillna(0)
 
     print nodes.describe()
-    print ""
-    print "neighborhood_vars"
-    print ""
     orca.add_table("nodes", nodes)
 
 
@@ -995,7 +995,4 @@ def price_vars(net):
     print nodes2.describe()
     nodes = orca.get_table('nodes')
     nodes = nodes.to_frame().join(nodes2)
-    print ""
-    print "price_vars"
-    print ""
     orca.add_table("nodes", nodes)

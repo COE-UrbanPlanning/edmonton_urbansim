@@ -742,7 +742,6 @@ def hlcm_renter_estimate(households, residential_units, aggregations):
 # use one core hlcm for the hlcms below, with different yaml files
 def hlcm_simulate(households, residential_units, aggregations,
                   settings, yaml_name, equilibration_name):
-
     return utils.lcm_simulate(cfg=yaml_name,
                               choosers=households,
                               buildings=residential_units,
@@ -750,8 +749,8 @@ def hlcm_simulate(households, residential_units, aggregations,
                               out_fname='unit_id',
                               supply_fname='num_units',
                               vacant_fname='vacant_units',
-                              enable_supply_correction=settings.get(
-                                equilibration_name, None),
+#                              enable_supply_correction=settings.get(
+#                                equilibration_name, None),
                               cast=True)
 
 
