@@ -98,9 +98,7 @@ def match_households_to_units(households, residential_units):
     """
     units = residential_units
     hh = households
-
-#    print hh.building_id
-
+    
     # This code block is from Fletcher
     unit_lookup = units.reset_index().set_index(['building_id', 'unit_num'])
     hh = hh.sort_values(by=['building_id'], ascending=True)
@@ -117,6 +115,7 @@ def match_households_to_units(households, residential_units):
 
     # The fillna is added to make assign_tenure_to_units work. Might break things
     hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.fillna(-1).values
+#    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.values
     hh.loc[unplaced, 'unit_id'] = -1
 
     return hh
@@ -154,10 +153,9 @@ def assign_tenure_to_units(residential_units, households):
     rent = hh[(hh.tenure == 'rent') & (hh.unit_id != -1)].unit_id.values
     units.loc[own, 'tenure'] = 'own'
     units.loc[rent, 'tenure'] = 'rent'
-
     print "Init unit tenure assignment: %d%% owner occupied, %d%% unfilled" % \
-        (round(len(units[units.tenure == 'own'])*100 /
-         len(units[units.tenure.notnull()])),
+        (round(len(units[units.tenure.astype(str) == 'own'])*100 /
+         len(units[units.tenure.notnull()])) if len(units[units.tenure.notnull()]) != 0 else 0,
          round(len(units[units.tenure.isnull()])*100 / len(units)))
 
     # Fill remaining units with random tenure assignment
@@ -487,11 +485,11 @@ def initialize_new_units(buildings, residential_units):
     '''
 
     old_units = residential_units.to_frame(residential_units.local_columns)
-    bldgs = buildings.to_frame(['residential_units', 'deed_restricted_units'])
+    bldgs = buildings.to_frame(['residential_units', 'deed_restricted_units', 'building_id'])
 
     # Filter for residential buildings not currently represented in
     # the units table
-    new_bldgs = bldgs[~bldgs.index.isin(old_units.building_id)]
+    new_bldgs = bldgs[~bldgs.building_id.isin(old_units.building_id)]
     new_bldgs = new_bldgs[new_bldgs.residential_units > 0]
 
     # Create new units, merge them, and update the table

@@ -394,6 +394,11 @@ def geographic_summary(parcels, households, jobs, buildings, taz_geography,
         [parcels, buildings, households],
         columns=['pda', 'zone_id', 'juris', 'superdistrict',
                  'persons', 'income', 'base_income_quartile'])
+    
+    # Stupid stuff to make this work for now
+    households_df.pda = households_df.pda.fillna(0)
+    households_df.superdistrict = households_df.superdistrict.fillna(0)
+    households_df.juris = households_df.juris.fillna(0)
 
     jobs_df = orca.merge_tables(
         'jobs',
@@ -490,6 +495,10 @@ def geographic_summary(parcels, households, jobs, buildings, taz_geography,
                 summary_table['non_residential_sqft'] / summary_table['totemp']
 
             if parcel_output is not None:
+                if 'inclusionary_units' not in parcel_output.columns:
+                    parcel_output['inclusionary_units'] = 0
+                if 'policy_based_revenue_reduction' not in parcel_output.columns:
+                    parcel_output['policy_based_revenue_reduction'] = 0
                 parcel_output['subsidized_units'] = \
                     parcel_output.deed_restricted_units - \
                     parcel_output.inclusionary_units
@@ -823,12 +832,12 @@ def scaled_resacre(mtcr, us_outr):
 
 
 def zone_forecast_inputs():
-    return pd.read_csv(os.path.join('data', 'zone_forecast_inputs.csv'),
+    return pd.read_csv(os.path.join('myData', 'zone_forecast_inputs_copy.csv'),
                        index_col="zone_id")
 
 
 def regional_controls():
-    return pd.read_csv(os.path.join('data', 'regional_controls.csv'),
+    return pd.read_csv(os.path.join('myData', 'regional_controls.csv'),
                        index_col="year")
 
 
@@ -839,7 +848,7 @@ def add_population(df, year):
     zfi = zone_forecast_inputs()
     s = df.tothh * zfi.meanhhsize
 
-    s = scale_by_target(s, target, .15)
+#    s = scale_by_target(s, target, .15)
 
     df["hhpop"] = round_series_match_target(s, target, 0)
     df["hhpop"] = df.hhpop.fillna(0)
@@ -872,7 +881,7 @@ def add_employment(df, year):
     rc = regional_controls()
     target = rc.empres.loc[year]
 
-    empres = scale_by_target(empres, target)
+#    empres = scale_by_target(empres, target)
 
     df["empres"] = round_series_match_target(empres, target, 0)
 
@@ -891,9 +900,10 @@ def add_age_categories(df, year):
     zfi = zone_forecast_inputs()
     rc = regional_controls()
 
+    # Added [df.index.isin(zfi.index)] to prevent errors on non-matching data
     seed_matrix = zfi[["sh_age0004", "sh_age0519", "sh_age2044",
                        "sh_age4564", "sh_age65p"]].\
-        mul(df.totpop, axis='index').as_matrix()
+        mul(df[df.index.isin(zfi.index)].totpop, axis='index').as_matrix()
 
     row_marginals = df.totpop.values
     agecols = ["age0004", "age0519", "age2044", "age4564", "age65p"]
@@ -905,7 +915,7 @@ def add_age_categories(df, year):
 
     seed_matrix[seed_matrix == 0] = .1
     seed_matrix[row_marginals == 0, :] = 0
-
+    
     mat = simple_ipf(seed_matrix, col_marginals, row_marginals)
     agedf = pd.DataFrame(mat)
     agedf.columns = [col.upper() for col in agecols]

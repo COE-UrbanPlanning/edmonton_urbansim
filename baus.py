@@ -11,6 +11,7 @@ import socket
 import argparse
 import warnings
 from baus.utils import compare_summary
+import numpy as np
 
 warnings.filterwarnings("ignore")
 
@@ -245,32 +246,32 @@ def run_models(MODE, SCENARIO):
                 "neighborhood_vars",   # local accessibility vars
                 "regional_vars",       # regional accessibility vars
 
-#                "rsh_simulate",    # residential sales hedonic for units
-#                "rrh_simulate",    # residential rental hedonic for units
-#                "nrh_simulate",
-#
-#                # (based on higher of predicted price or rent)
-#                "assign_tenure_to_new_units",
-#
-#                # uses conditional probabilities
-#                "households_relocation",
-#                "households_transition",
-#                # update building/unit/hh correspondence
-#                "reconcile_unplaced_households",
-#                "jobs_transition",
-#
-#                # allocate owners to vacant owner-occupied units
-#                "hlcm_owner_simulate",
-#                # allocate renters to vacant rental units
-#                "hlcm_renter_simulate",
-#                # update building/unit/hh correspondence
-#                "reconcile_placed_households",
-#
-#                "elcm_simulate",
-#
-#                "price_vars",
-#
-#                "topsheet",
+                "rsh_simulate",    # residential sales hedonic for units
+                "rrh_simulate",    # residential rental hedonic for units
+                "nrh_simulate",
+
+                # (based on higher of predicted price or rent)
+                "assign_tenure_to_new_units",
+
+                # uses conditional probabilities
+                "households_relocation",
+                "households_transition",
+                # update building/unit/hh correspondence
+                "reconcile_unplaced_households",
+                "jobs_transition",
+
+                # allocate owners to vacant owner-occupied units
+                "hlcm_owner_simulate",
+                # allocate renters to vacant rental units
+                "hlcm_renter_simulate",
+                # update building/unit/hh correspondence
+                "reconcile_placed_households",
+
+                "elcm_simulate",
+
+                "price_vars",
+
+                "topsheet",
                 "simulation_validation",
                 "parcel_summary",
                 "building_summary",
@@ -285,6 +286,8 @@ def run_models(MODE, SCENARIO):
         years_to_run = range(IN_YEAR+EVERY_NTH_YEAR, OUT_YEAR+1,
                              EVERY_NTH_YEAR)
         models = get_simulation_models(SCENARIO)
+        print models
+        print ""
         orca.run(models, iter_vars=years_to_run)
 
     elif MODE == "estimation":

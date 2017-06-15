@@ -33,12 +33,7 @@ def allocate_jobs(baseyear_taz_controls, settings, buildings, parcels):
     df = pd.DataFrame(jobs, columns=[
         'sector_id', 'empsix', 'taz', 'building_id'])
 
-    # Originally used misc.reindex, but wouldn't work for some reason, so now
-    # it's explicitly done here
-    zone_id = pd.merge(pd.DataFrame({"PARCEL_ID": buildings.PARCEL_ID}), 
-                       pd.DataFrame({"PARCEL_ID": parcels.PARCEL_ID, "ZONE_ID": parcels.ZONE_ID}),
-                       on='PARCEL_ID',
-                       how="left")['ZONE_ID']
+    zone_id = misc.reindex(parcels.zone_id, buildings.parcel_id)
 
     # variable to hold the taz of areas with no weight
     zero_weight = []
@@ -302,7 +297,7 @@ def preproc_buildings_start(store, buildings, parcels, manual_edits):
     df = df.drop(['DEVELOPMEN', 'impr_value',
                   'sqft_per_unit',
                   'res_p_sqrt', 'costar_t',
-                  'costar_r'], axis=1)
+                  'costar_r'], axis=1, errors='ignore')
 
     df["residential_units"] = df.residential_units.fillna(0)
 

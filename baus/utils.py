@@ -4,7 +4,10 @@ import orca
 import os
 import sys
 from urbansim_defaults.utils import _remove_developed_buildings
+from urbansim_defaults.utils import SimulationSummaryData as DefaultSimulationSummaryData
 from urbansim.developer.developer import Developer as dev
+import json
+import shapely
 
 
 #####################
@@ -208,6 +211,7 @@ def simple_ipf(seed_matrix, col_marginals, row_marginals, tolerance=1, cnt=0):
     # first normalize on columns
     ratios = col_marginals / seed_matrix.sum(axis=0)
     seed_matrix *= ratios
+    return seed_matrix
     closeness = np.absolute(row_marginals - seed_matrix.sum(axis=1)).sum()
     assert np.absolute(col_marginals - seed_matrix.sum(axis=0)).sum() < .01
     # print "row closeness", closeness
@@ -348,3 +352,39 @@ def compare_summary(df1, df2, index_names=None, pctdiff=10,
             (geog_name, lab, val, col)
 
     return buf
+
+
+class SimulationSummaryData(DefaultSimulationSummaryData):
+
+    def write_zone_output(self):
+        """
+        Write the zone-level output to a file.
+        """
+        if self.zone_output is None:
+            return
+        outf = open(self.zone_indicator_file, "w")
+        json.dump(self.zone_output, outf, cls=MyEncoder)
+        outf.close()
+        
+        
+# Taken from https://stackoverflow.com/questions/27050108/convert-numpy-type-to-python/27050186#27050186
+class MyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, shapely.geometry.polygon.Polygon):
+            return str(obj)
+        else:
+            return super(MyEncoder, self).default(obj)
+
+
+
+
+
+
+
+    

@@ -26,6 +26,7 @@ DATA_DIR = "myData"
 def elcm_simulate(jobs, buildings, aggregations):
     buildings.local["non_residential_rent"] = \
         buildings.local.non_residential_rent.fillna(0)
+    buildings.index.names = ["index"]
     return utils.lcm_simulate("elcm.yaml", 
                               orca.orca.DataFrameWrapper('jobs_for_sim', 
                                                          jobs.to_frame().dropna(subset=['building_id'])), 
@@ -206,7 +207,7 @@ def proportional_elcm(jobs, households, buildings, parcels,
         location_options
     )
 
-    jobs.update_col_from_series("building_id", s)
+    jobs.update_col_from_series("building_id", s, cast=True)
 
     # first read the file from disk - it's small so no table source
     taz_assumptions_df = pd.read_csv(os.path.join(
@@ -268,7 +269,7 @@ def proportional_elcm(jobs, households, buildings, parcels,
         target_jobs=target_jobs
     )
 
-    jobs.update_col_from_series("building_id", s)
+    jobs.update_col_from_series("building_id", s, cast=True)
 
 
 @orca.step()
@@ -299,7 +300,7 @@ def jobs_relocation(jobs, employment_relocation_rates, years_per_iter,
 
     # set jobs that are moving to a building_id of -1 (means unplaced)
     jobs.update_col_from_series("building_id",
-                                pd.Series(-1, index=index))
+                                pd.Series(-1, index=index), cast=True)
 
 
 # this deviates from the step in urbansim_defaults only in how it deals with
@@ -393,6 +394,8 @@ def form_to_btype_func(building):
 
 @orca.injectable(autocall=False)
 def add_extra_columns_func(df):
+    if 'parcel_id' not in df.columns:
+        df["parcel_id"] = df["PARCEL_ID"]
     for col in ["residential_price", "non_residential_rent"]:
         df[col] = 0
 
@@ -419,6 +422,44 @@ def add_extra_columns_func(df):
             "building_type" not in df:
         form_to_btype_func = orca.get_injectable("form_to_btype_func")
         df["building_type"] = df.apply(form_to_btype_func, axis=1)
+    
+    if "GEOM_ID" not in df.columns and "geom_id" in df.columns:
+        df["GEOM_ID"] = df["geom_id"]
+    if "bld_year" not in df.columns and "year_built" in df.columns:
+        df["bld_year"] = df["year_built"]
+    if "bldg_sqft" not in df.columns and "building_sqft" in df.columns:
+        df["bldg_sqft"] = df["building_sqft"]
+    if "bldgt_id" not in df.columns and "building_type" in df.columns:
+        df["bldgt_id"] = df["building_type"]
+    if "nres_r_ft" not in df.columns and "non_residential_rent" in df.columns:
+        df["nres_r_ft"] = df["non_residential_rent"]
+    if "nres_sqft" not in df.columns and "non_residential_sqft" in df.columns:
+        df["nres_sqft"] = df["non_residential_sqft"]
+    if "redf_year" not in df.columns and "redfin_sale_year" in df.columns:
+        df["redf_year"] = df["redfin_sale_year"]
+    if "res_sqft" not in df.columns and "residential_sqft" in df.columns:
+        df["res_sqft"] = df["residential_sqft"]
+    if "res_units" not in df.columns and "residential_units" in df.columns:
+        df["res_units"] = df["residential_units"]
+    if "sale_price" not in df.columns and "building_purchase_price" in df.columns:
+        df["sale_price"] = df["building_purchase_price"]
+    if "parcel_id" not in df.columns and "PARCEL_ID" in df.columns:
+        df['parcel_id'] = df["PARCEL_ID"]
+    df = pd.merge(df, orca.get_table('parcels').to_frame(['APN', 'parcel_id']), 
+                   on='parcel_id', right_index=True, how='left')
+    
+    # This holds the column names that devs is missing from buildings, plus
+    # APN, since it needs something to join on. I'm not sure, but I think it's 
+    # possible for more than one building to have the same APN. If that ever 
+    # happens, a new column will need to be chosen to merge devs to buildings
+    missing = ['APN']
+    for column in orca.get_table('buildings').columns:
+        if column not in df.columns:
+            missing.append(column)
+
+    df = pd.merge(df.reset_index(), orca.get_table('buildings').to_frame(missing), 
+                  on='APN', how='left').set_index('index')
+
 
     return df
 
@@ -569,17 +610,25 @@ def retail_developer(jobs, buildings, parcels, nodes, feasibility,
     target *= settings["building_sqft_per_job"]["HS"]
 
     feasibility = feasibility.to_frame().loc[:, "retail"]
-    feasibility = feasibility.dropna(subset=["max_profit"])
+    # make sure max profit is present
+    if "max_profit" in feasibility.columns:
+        feasibility = feasibility.dropna(subset=["max_profit"])
 
+    if "non_residential_sqft" not in feasibility.columns:
+        feasibility["non_residential_sqft"] = 0 
+    
     feasibility["non_residential_sqft"] = \
-        feasibility.non_residential_sqft.astype("int")
+               feasibility.non_residential_sqft.astype("int")        
 
     feasibility["retail_ratio"] = parcels.retail_ratio
     feasibility = feasibility.reset_index()
 
     # create features
     f1 = feasibility.retail_ratio / feasibility.retail_ratio.max()
-    f2 = feasibility.max_profit / feasibility.max_profit.max()
+    if "max_profit" in feasibility.columns:
+        f2 = feasibility.max_profit / feasibility.max_profit.max()
+    else:
+        f2 = 0
 
     # combine features in probability function - it's like combining expense
     # of building the building with the market in the neighborhood
@@ -607,7 +656,7 @@ def retail_developer(jobs, buildings, parcels, nodes, feasibility,
 
         # add redeveloped sqft to target
         filt = "general_type == 'Retail' and parcel_id == %d" % \
-            d["parcel_id"]
+            d["PARCEL_ID"]
         target += bldgs.query(filt).non_residential_sqft.sum()
 
         devs.append(d)
@@ -623,7 +672,6 @@ def retail_developer(jobs, buildings, parcels, nodes, feasibility,
         devs.non_residential_sqft.sum(), len(devs))
     if target > 0:
         print "   WARNING: retail target not met"
-
     devs["form"] = "retail"
     devs = add_extra_columns_func(devs)
 
@@ -950,7 +998,7 @@ def neighborhood_vars(net, jobs):
 
 
 @orca.step()
-def regional_vars(net):
+def regional_vars(net, parcels):
     nodes = networks.from_yaml(net["drive"], "regional_vars.yaml")
     nodes = nodes.fillna(0)
 

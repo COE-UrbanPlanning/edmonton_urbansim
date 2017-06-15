@@ -141,7 +141,7 @@ def inclusionary_housing_revenue_reduction(feasibility, units):
 
     s = num_affordable_units.groupby(parcels_geography.juris_name).sum()
     print "Feasibile affordable units by jurisdiction"
-    print s[s > 0].order()
+    print s[s > 0].sort_values()
 
     return revenue_reduction, num_affordable_units
 
@@ -332,14 +332,20 @@ def subsidized_office_developer(feasibility, coffer, acct_settings, year,
 
     # get the office feasibility frame and sort by profit per sqft
     feasibility = feasibility.to_frame().loc[:, "office"]
+    if "max_profit" not in feasibility.columns:
+        feasibility["max_profit"] = 0    
     feasibility = feasibility.dropna(subset=["max_profit"])
 
+    if "pda" not in feasibility.columns:
+        feasibility["pda"] = np.nan
     feasibility["pda_id"] = feasibility.pda
 
     # filter to receiving zone
     feasibility = feasibility.\
         query(acct_settings["vmt_settings"]["receiving_buildings_filter"])
 
+    if "non_residential_sqft" not in feasibility.columns:
+        feasibility["non_residential_sqft"] = 0
     feasibility["non_residential_sqft"] = \
         feasibility.non_residential_sqft.astype("int")
 
@@ -348,7 +354,7 @@ def subsidized_office_developer(feasibility, coffer, acct_settings, year,
 
     # sorting by our choice metric as we're going to pick our devs
     # in order off the top
-    feasibility = feasibility.sort(columns=['max_profit_per_sqft'])
+    feasibility = feasibility.sort_values(['max_profit_per_sqft'])
 
     # make parcel_id available
     feasibility = feasibility.reset_index()

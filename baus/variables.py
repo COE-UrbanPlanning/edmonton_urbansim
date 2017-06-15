@@ -349,7 +349,7 @@ def non_residential_rent(buildings):
 
 @orca.column('buildings', cache=True)
 def building_id(buildings):
-    return buildings.index
+    return buildings.bldg_id
 
 
 #####################
@@ -567,6 +567,16 @@ def y(parcels):
 @orca.column('parcels', cache=True)
 def county_id(parcels):
     return parcels.COUNTY_ID
+
+
+@orca.column('parcels', cache=True)
+def acres(parcels):
+    return parcels.ACRES
+    
+
+@orca.column('parcels', cache=True)
+def parcel_id(parcels):
+    return parcels.PARCEL_ID
 
 
 #############################

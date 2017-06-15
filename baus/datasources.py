@@ -7,8 +7,8 @@ from urbansim_defaults import utils
 from urbansim.utils import misc
 import orca
 import preprocessing
-from utils import geom_id_to_parcel_id, parcel_id_to_geom_id
-from utils import nearest_neighbor
+from utils import (geom_id_to_parcel_id, parcel_id_to_geom_id, nearest_neighbor, 
+                   SimulationSummaryData)
 
 
 #####################
@@ -100,6 +100,12 @@ def inclusionary_housing_settings(settings, scenario):
 @orca.injectable(cache=True)
 def building_sqft_per_job(settings):
     return settings['building_sqft_per_job']
+
+
+# Overwrite urbansim defaults summary
+@orca.injectable("summary", cache=True)
+def simulation_summary_data(run_number):
+    return SimulationSummaryData(run_number)
 
 
 @orca.step()
@@ -257,6 +263,8 @@ def parcels_geography(parcels):
     df.loc[2054505, "juris_name"] = "Santa Clara County"
     df.loc[2054506, "juris_name"] = "Marin County"
     df.loc[572927, "juris_name"] = "Contra Costa County"
+    # Added to make proportional_elcm step of simulations work
+    df.loc[124131, "juris_name"] = "Berkeley"
     # assert no empty juris values
     assert True not in df.juris_name.isnull().value_counts()
 
@@ -352,6 +360,28 @@ def development_projects(parcels, settings, scenario):
     df["impr_value"] = None
     df['sqft_unit'] = None
     df['sale_year'] = df.last_sale_year
+    df['price_per_sqft'] = None
+    df['lot_size_per_unit'] = None
+    df['vacant_residential_units'] = None
+    df['juris_ave_income'] = None
+    df['vacant_job_spaces'] = None
+    df['vacant_res_units'] = None
+    df['building_age'] = None
+    df['tmnode_id'] = None
+    df['building_id'] = None
+    df['new_construction'] = None
+    df['transit_type'] = None
+    df['vmt_res_cat'] = None
+    df['historic'] = None
+    df['modern_condo'] = None
+    df['zone_id'] = None
+    df['general_type'] = None
+    df['sqft_per_job'] = None
+    df['node_id'] = None
+    df['is_sanfran'] = None
+    df['job_spaces'] = None
+    df['unit_price'] = None
+    df['bldg_id'] = None
     
     for col in [
             'residential_sqft', 'residential_price', 'non_residential_rent']:
@@ -408,8 +438,11 @@ def households(store):
 
 @orca.table(cache=True)
 def buildings(store):
-    return check_for_preproc(store, 'buildings_preproc',
+    df = check_for_preproc(store, 'buildings_preproc',
                              '09_01_2015_building_berkeley.shp')
+#    if df.index.name == 'APN':
+    return df
+#    return df.set_index('APN')
 
 
 @orca.table(cache=True)
