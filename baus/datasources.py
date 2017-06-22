@@ -102,7 +102,7 @@ def building_sqft_per_job(settings):
     return settings['building_sqft_per_job']
 
 
-# Overwrite urbansim defaults summary
+# Overwrite urbansim default's summary
 @orca.injectable("summary", cache=True)
 def simulation_summary_data(run_number):
     return SimulationSummaryData(run_number)

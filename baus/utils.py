@@ -8,6 +8,7 @@ from urbansim_defaults.utils import SimulationSummaryData as DefaultSimulationSu
 from urbansim.developer.developer import Developer as dev
 import json
 import shapely
+import geopandas as gp
 
 
 #####################
@@ -355,6 +356,72 @@ def compare_summary(df1, df2, index_names=None, pctdiff=10,
 
 
 class SimulationSummaryData(DefaultSimulationSummaryData):
+    
+    def add_zone_output(self, zones_df, name, year, round=2):
+        """
+        Pass in a dataframe and this function will store the results in the
+        simulation state to write out at the end (to describe how the simulation
+        changes over time)
+
+        Parameters
+        ----------
+        zones_df : DataFrame
+            dataframe of indicators whose index is the zone_id and columns are
+            indicators describing the simulation
+        name : string
+            The name of the dataframe to use to differentiate all the sources of
+            the indicators
+        year : int
+            The year to associate with these indicators
+        round : int
+            The number of decimal places to round to in the output json
+
+        Returns
+        -------
+        Nothing
+        """
+        # this creates a hierarchical json data structure to encapsulate
+        # zone-level indicators over the simulation years.  "index" is the ids
+        # of the shapes that this will be joined to and "year" is the list of
+        # years. Each indicator then get put under a two-level dictionary of
+        # column name and then year.  this is not the most efficient data
+        # structure but since the number of zones is pretty small, it is a
+        # simple and convenient data structure
+
+        if self.zone_output is None:
+#            d = {
+#                "index": list(zones_df.index),
+#                "years": []
+#            }
+            d = gp.GeoDataFrame(index = zones_df.index)
+        else:
+            d = self.zone_output
+
+        assert len(d.index) == len(zones_df.index), "Passing in zones " \
+            "dataframe that is not aligned on the same index as a previous " \
+            "dataframe"
+
+#        if year not in d["years"]:
+#            d["years"].append(year)
+
+        for col in zones_df.columns:
+#            d.setdefault(col, {})
+            if col == "geometry" or col == "ZONE_ID":
+                d[col] = zones_df[col]
+                continue
+            d[col + "_original_df"] = name
+            s = zones_df[col]
+            dtype = s.dtype
+            if dtype == "float64" or dtype == "float32":
+                s = s.fillna(0)
+                d[col + "_" + str(year)] = [float(x) for x in list(s.round(round))]
+            elif dtype == "int64" or dtype == "int32":
+                s = s.fillna(0)
+                d[col + "_" + str(year)] = [int(x) for x in list(s)]
+            else:
+                d[col + "_" + str(year)] = list(s)
+
+        self.zone_output = d
 
     def write_zone_output(self):
         """
@@ -363,7 +430,11 @@ class SimulationSummaryData(DefaultSimulationSummaryData):
         if self.zone_output is None:
             return
         outf = open(self.zone_indicator_file, "w")
-        json.dump(self.zone_output, outf, cls=MyEncoder)
+#        json.dump(self.zone_output, outf, cls=MyEncoder)
+#        if "geometry" not in self.zone_output.columns:
+#            outf.write(pd.DataFrame(self.zone_output).to_json())
+#        else:
+        outf.write(self.zone_output.to_json())
         outf.close()
         
         

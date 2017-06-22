@@ -1,13 +1,14 @@
-from urbansim_explorer import sim_explorer as se
+from urbansim.maps import dframe_explorer as de
+import orca
 import sys
 
-runnum = int(sys.argv[1])
+runnum = orca.get_injectable("run_number")
 
 parcel_output = 'runs/run%d_parcel_output.csv' % runnum
 zone_output = 'runs/run%d_simulation_output.json' % runnum
 outfile = '/var/www/html/sim_explorer%d.html' % runnum
 
-se.start(
+de.start(
     zone_output,
     parcel_output,
     port=8080,

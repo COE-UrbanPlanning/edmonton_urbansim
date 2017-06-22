@@ -760,6 +760,11 @@ def office_developer(feasibility, jobs, buildings, parcels, year,
             # again because the buildings df gets modified by the run_developer
             # method below
             buildings = orca.get_table('buildings')
+            
+            for form in feasibility.to_frame().columns.levels[0]:
+                for column in feasibility.to_frame().columns.levels[1]:                  
+                    if column not in feasibility[form].columns: 
+                        feasibility[form, column] = np.nan
 
             new_buildings = utils.run_developer(
                 typ.lower(),

@@ -29,7 +29,7 @@ CURRENT_COMMIT = os.popen('git rev-parse HEAD').read()
 COMPARE_TO_NO_PROJECT = True
 NO_PROJECT = 611
 
-IN_YEAR, OUT_YEAR = 2010, 2040
+IN_YEAR, OUT_YEAR = 2010, 2016
 COMPARE_AGAINST_LAST_KNOWN_GOOD = False
 
 LAST_KNOWN_GOOD_RUNS = {
@@ -375,8 +375,8 @@ print "Finished", time.ctime()
 
 if MAPS:
 
-    from urbansim_explorer import sim_explorer as se
-    se.start(
+    from urbansim.maps import dframe_explorer as de
+    de.start(
         'runs/run%d_simulation_output.json' % run_num,
         'runs/run%d_parcel_output.csv' % run_num,
         write_static_file='/var/www/html/sim_explorer%d.html' % run_num

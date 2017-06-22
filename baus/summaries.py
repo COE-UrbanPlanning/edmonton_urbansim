@@ -790,7 +790,10 @@ def travel_model_output(parcels, households, jobs, buildings,
     taz_df = add_age_categories(taz_df, year)
 
     summary.add_zone_output(taz_df, "travel_model_output", year)
-    summary.write_zone_output()
+    if "geometry" in summary.zone_output.columns:
+        summary.write_zone_output()
+    else:
+        print "Warning: No output json written because no geometry attribute present"
 
     # otherwise it loses precision
     if summary.parcel_output is not None\

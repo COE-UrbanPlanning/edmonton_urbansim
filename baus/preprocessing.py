@@ -149,7 +149,7 @@ def assign_deed_restricted_units(df, parcels):
         reindex(df.index).fillna(-1)
     # sample deed restricted units to match current deed restricted unit
     # zone totals
-    for taz, row in pd.read_csv('data/deed_restricted_zone_totals.csv',
+    for taz, row in pd.read_csv('myData/deed_restricted_zone_totals.csv',
                                 index_col='taz_key').iterrows():
 
         cnt = row["units"]
