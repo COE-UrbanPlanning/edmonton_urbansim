@@ -220,6 +220,8 @@ def get_simulation_models(SCENARIO):
 def run_models(MODE, SCENARIO):
 
     if MODE == "preprocessing":
+        os.system('del myData\\2015_09_01_bayarea_v3.h5')
+        os.system('copy myData\\2015_09_01_bayarea_v3_empty.h5 myData\\2015_09_01_bayarea_v3.h5')
 
         orca.run([
             "preproc_jobs",

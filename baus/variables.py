@@ -1065,3 +1065,13 @@ def zoned_build_ratio(parcels_zoning_calculations):
 def zoned_du_underbuild_nodev(parcels, parcels_zoning_calculations):
     return (parcels_zoning_calculations.zoned_du_underbuild *
             parcels.parcel_rules).astype('int')
+    
+    
+#####################
+# RESULTS VARIABLES
+#####################
+
+
+@orca.column('results')
+def zone_id(results):
+    return results.ZONE_ID

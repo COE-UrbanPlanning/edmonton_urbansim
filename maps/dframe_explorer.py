@@ -19,7 +19,9 @@ CONFIG = None
 
 def get_schema():
     global DFRAMES
-    return {name: list(DFRAMES[name].columns) for name in DFRAMES}
+    return {name: list(column for column in DFRAMES[name].columns if
+                       pd.core.dtypes.common.is_numeric_dtype(DFRAMES[name][column].dtype)) 
+                for name in DFRAMES}
 
 
 @route('/map_query/<table>/<filter>/<groupby>/<field:path>/<agg>', method="GET")
@@ -41,7 +43,7 @@ def map_query(table, filter, groupby, field, agg):
     results = eval(cmd)
     results[results == np.inf] = np.nan
     results = yamlio.series_to_yaml_safe(results.dropna())
-    results = {int(k): results[k] for k in results}
+    results = {int(float(str(k))): results[k] for k in results}
     return results
 
 

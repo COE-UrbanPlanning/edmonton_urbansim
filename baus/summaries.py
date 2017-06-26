@@ -685,7 +685,7 @@ def parcel_summary(parcels, buildings, households, jobs,
 def travel_model_output(parcels, households, jobs, buildings,
                         zones, year, summary, coffer,
                         zone_forecast_inputs, run_number,
-                        taz, base_year_summary_taz, taz_geography):
+                        taz, base_year_summary_taz, taz_geography, store):
 
     if year not in [2010, 2015, 2020, 2025, 2030, 2035, 2040]:
         # only summarize for years which are multiples of 5
@@ -791,7 +791,7 @@ def travel_model_output(parcels, households, jobs, buildings,
 
     summary.add_zone_output(taz_df, "travel_model_output", year)
     if "geometry" in summary.zone_output.columns:
-        summary.write_zone_output()
+        summary.write_zone_output(store)
     else:
         print "Warning: No output json written because no geometry attribute present"
 

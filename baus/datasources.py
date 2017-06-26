@@ -545,6 +545,11 @@ def zones():
     # sort index so it prints out nicely when we want it to
     return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
                        '09_01_2015_zones_berkeley.shp')).sort_index()
+    
+    
+@orca.table(cache=True)
+def results(store):
+    return store['results']
 
 
 # this specifies the relationships between tables

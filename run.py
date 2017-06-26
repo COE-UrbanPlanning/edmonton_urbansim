@@ -3,18 +3,11 @@ from baus import models
 from baus import ual
 import orca
 from maps import dframe_explorer
-#orca.run([
-#    "neighborhood_vars",
-##    "rsh_simulate",
-##    "rrh_simulate",    
-#], iter_vars=[2010])
 
-#os.system('del myData\\2015_09_01_bayarea_v3.h5')
-#os.system('copy myData\\2015_09_01_bayarea_v3_empty.h5 myData\\2015_09_01_bayarea_v3.h5')
 #os.system('python baus.py -c --mode preprocessing')
-
-os.system('python baus.py -c --mode estimation')
-os.system('python baus.py -c --mode feasibility')
+#
+#os.system('python baus.py -c --mode estimation')
+#os.system('python baus.py -c --mode feasibility')
 os.system('python baus.py -c --mode simulation')
 
 try:
@@ -28,7 +21,7 @@ f.write(str(run_number + 1))
 f.close()
 
 d = {tbl: orca.get_table(tbl).to_frame() for tbl in 
-         ['buildings', 'residential_units', 'households']}
+         ['buildings', 'residential_units', 'households', 'results']}
 dframe_explorer.start(d, 
         center=[37.7792, -122.2191],
         zoom=11,

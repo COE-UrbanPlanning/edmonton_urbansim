@@ -423,12 +423,15 @@ class SimulationSummaryData(DefaultSimulationSummaryData):
 
         self.zone_output = d
 
-    def write_zone_output(self):
+    def write_zone_output(self, store):
         """
         Write the zone-level output to a file.
         """
         if self.zone_output is None:
             return
+        
+        store['results'] = pd.DataFrame(self.zone_output)
+        
         outf = open(self.zone_indicator_file, "w")
 #        json.dump(self.zone_output, outf, cls=MyEncoder)
 #        if "geometry" not in self.zone_output.columns:
