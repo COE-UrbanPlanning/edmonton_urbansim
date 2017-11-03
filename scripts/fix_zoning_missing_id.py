@@ -5,12 +5,13 @@ import os
 import datetime
 from urbansim.utils import misc
 from baus import datasources
+from datasources import DATA_DIR
 
 
 @orca.table('zcsv', cache=True)
 def zcsv():
-    df = pd.read_csv(os.path.join(misc.data_dir(),
-                     "2015_12_21_zoning_parcels.csv"),
+    df = pd.read_csv(os.path.join(DATA_DIR,
+                     "2017_01_01_zoning_parcels.shp"),
                      index_col="geom_id")
     return df
 
@@ -21,15 +22,15 @@ z = orca.get_table("zcsv")
 zdf = z.to_frame()
 
 null_df = zdf.loc[zdf.zoning_id.isnull(), :]
-print "there are " + str(len(null_df.index)) + " empty zoning ids"
-print "number of parcels with null values by city:"
-print null_df.tablename.value_counts()
+print("there are " + str(len(null_df.index)) + " empty zoning ids")
+print("number of parcels with null values by city:")
+print(null_df.tablename.value_counts())
 
-print "number of parcels with null values by source zoning code by city:"
-for ix, val in null_df.tablename.value_counts().iteritems():
+print("number of parcels with null values by source zoning code by city:")
+for ix, val in null_df.tablename.value_counts().items():
     if val > 5:
-        print ix
-        print null_df[null_df.tablename == ix].zoning.value_counts()
+        print(ix)
+        print(null_df[null_df.tablename == ix].zoning.value_counts())
 
 zl_df = zl.to_frame()
 
@@ -45,17 +46,17 @@ mdf = pd.merge(null_df, zl_df, how='inner',
                right_on=['name', 'tablename'], left_on=['zoning', 'tablename'])
 mdf = mdf.set_index(mdf.geom_id)
 
-print "replaced " + str(len(mdf.index)) + " empty zoning ids"
+print("replaced " + str(len(mdf.index)) + " empty zoning ids")
 zdf.loc[mdf.index, 'zoning_id'] = mdf['zoning_lookup_table_id']
 
 null_df = zdf.loc[zdf.zoning_id.isnull(), :]
-print "there are " + str(len(null_df.index)) + " empty zoning ids"
+print("there are " + str(len(null_df.index)) + " empty zoning ids")
 
-print "number of parcels with null values by city:"
-print null_df.tablename.value_counts()
+print("number of parcels with null values by city:")
+print(null_df.tablename.value_counts())
 
 x = datetime.date.today()
-csvname = 'data/' + str(x.year) + '_' + str(x.month) + '_' + \
+csvname = 'coedata/' + str(x.year) + '_' + str(x.month) + '_' + \
     str(x.day) + '_zoning_parcels.csv'
 
 zdf.to_csv(csvname)

@@ -29,13 +29,12 @@ def test_inclusionary_housing_settings():
         "foo": [{
             "amount": .2,
             "values": [
-                "Berkeley",
-                "Oakland"
+                "Edmonton"
             ]
         }, {
             "amount": .1,
             "values": [
-                "San Francisco"
+                "Edmonton"
             ]
         }]
     }
@@ -43,6 +42,4 @@ def test_inclusionary_housing_settings():
         "inclusionary_housing_settings": inclusionary_housing_settings
     }, "foo")
 
-    assert out["Berkeley"] == .2
-    assert out["Oakland"] == .2
-    assert out["San Francisco"] == .1
+    assert out["Edmonton"] == .2

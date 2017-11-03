@@ -6,8 +6,8 @@ from urbansim_defaults import datasources
 from urbansim_defaults import utils
 from urbansim.utils import misc
 import orca
-import preprocessing
-from utils import (geom_id_to_parcel_id, parcel_id_to_geom_id, nearest_neighbor, 
+from . import preprocessing
+from .utils import (geom_id_to_parcel_id, parcel_id_to_geom_id, nearest_neighbor, 
                    SimulationSummaryData)
 
 
@@ -15,7 +15,7 @@ from utils import (geom_id_to_parcel_id, parcel_id_to_geom_id, nearest_neighbor,
 # TABLES AND INJECTABLES
 #####################
 
-DATA_DIR = "myData"
+DATA_DIR = "coedata"
 
 @orca.injectable('year')
 def year():
@@ -25,7 +25,7 @@ def year():
     except:
         pass
     # if we're not running simulation, return base year
-    return 2014
+    return 2010
 
 
 @orca.injectable()
@@ -52,19 +52,19 @@ def limits_settings(settings, scenario):
 
     d = settings['development_limits']
 
-    if scenario in d.keys():
-        print "Using limits for scenario: %s" % scenario
+    if scenario in list(d.keys()):
+        print("Using limits for scenario: %s" % scenario)
         assert "default" in d
 
         d_scen = d[scenario]
         d = d["default"]
-        for key, value in d_scen.iteritems():
+        for key, value in d_scen.items():
             d.setdefault(key, {})
             d[key].update(value)
 
         return d
 
-    print "Using default limits"
+    print("Using default limits")
     return d["default"]
 
 
@@ -75,20 +75,20 @@ def inclusionary_housing_settings(settings, scenario):
 
     s = settings['inclusionary_housing_settings']
 
-    if scenario in s.keys():
-        print "Using inclusionary settings for scenario: %s" % scenario
+    if scenario in list(s.keys()):
+        print("Using inclusionary settings for scenario: %s" % scenario)
         s = s[scenario]
 
-    elif "default" in s.keys():
-        print "Using default inclusionary settings"
+    elif "default" in list(s.keys()):
+        print("Using default inclusionary settings")
         s = s["default"]
 
     d = {}
     for item in s:
         # this is a list of cities with an inclusionary rate that is the
         # same for all the cities in the list
-        print "Setting inclusionary rates for %d cities to %.2f" %\
-            (len(item["values"]), item["amount"])
+        print("Setting inclusionary rates for %d cities to %.2f" %\
+            (len(item["values"]), item["amount"]))
         # this is a list of inclusionary rates and the cities they apply
         # to - need tro turn it in a map of city names to rates
         for juris in item["values"]:
@@ -134,9 +134,9 @@ def landmarks():
 
 
 @orca.table(cache=True)
-def baseyear_taz_controls():
+def baseyear_neigh_controls():
     return pd.read_csv(os.path.join(DATA_DIR,
-                       "baseyear_taz_controls.csv"), index_col="taz1454")
+                       "baseyear_neigh_controls.csv"), index_col="taz1454")
 
 
 @orca.table(cache=True)
@@ -149,21 +149,25 @@ def base_year_summary_taz():
 # non-residential rent data
 @orca.table(cache=True)
 def costar(parcels):
-    df = pd.read_csv(os.path.join(misc.data_dir(), '2015_08_29_costar.csv'))
+    df = gp.GeoDataFrame.from_file(os.path.join(DATA_DIR, '2017_01_01_costar.shp'))
 
-    df["PropertyType"] = df.PropertyType.replace("General Retail", "Retail")
+    df["PropertyType"] = df.ProType.replace("General Retail", "Retail")
     df = df[df.PropertyType.isin(["Office", "Retail", "Industrial"])]
 
-    df["costar_rent"] = df["Average Weighted Rent"].astype('float')
-    df["year_built"] = df["Year Built"].fillna(1980)
+    df["costar_rent"] = df["co_rent"].astype('float')
+    df["year_built"] = df["YearBuilt"].fillna(1980)
 
     df = df.dropna(subset=["costar_rent", "Latitude", "Longitude"])
 
-    # now assign parcel id
-    df["parcel_id"] = nearest_neighbor(
-        parcels.to_frame(['x', 'y']).dropna(subset=['x', 'y']),
-        df[['Longitude', 'Latitude']]
-    )
+    if len(df) > 0:
+        # now assign parcel id
+#        df["parcel_id"] = nearest_neighbor(
+#            parcels.to_frame(['x', 'y']).dropna(subset=['x', 'y']),
+#            df[['Longitude', 'Latitude']]
+#        )
+        df["parcel_id"] = df.PARCEL_ID
+    else:
+        df["parcel_id"] = None
 
     return df
 
@@ -177,9 +181,8 @@ def zoning_lookup():
 # zoning for use in the "baseline" scenario
 @orca.table(cache=True)
 def zoning_baseline(parcels, zoning_lookup, settings):
-    df = pd.read_csv(os.path.join(DATA_DIR,
-                     "2015_12_21_zoning_parcels.csv"),
-                     index_col="geom_id")
+    df = gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                     "2017_01_01_zoning_parcels.shp")).set_index("geom_id")
     df = pd.merge(df, zoning_lookup.to_frame(),
                   left_on="zoning_id", right_index=True)
     df = geom_id_to_parcel_id(df, parcels)
@@ -189,7 +192,7 @@ def zoning_baseline(parcels, zoning_lookup, settings):
 
 @orca.table(cache=True)
 def new_tpp_id():
-    return pd.read_csv(os.path.join(DATA_DIR, "tpp_id_2016.zip"),
+    return pd.read_csv(os.path.join(DATA_DIR, "tpp_id_2016.csv"),
                        index_col="parcel_id")
 
 
@@ -198,11 +201,11 @@ def zoning_scenario(parcels_geography, scenario, settings):
     scenario_zoning = pd.read_csv(
         os.path.join(DATA_DIR, 'zoning_mods_%s.csv' % scenario))
 
-    for k in settings["building_type_map"].keys():
+    for k in list(settings["building_type_map"].keys()):
         scenario_zoning[k] = np.nan
 
     def add_drop_helper(col, val):
-        for ind, item in scenario_zoning[col].iteritems():
+        for ind, item in scenario_zoning[col].items():
             if not isinstance(item, str):
                 continue
             for btype in item.split():
@@ -224,7 +227,7 @@ def zoning_scenario(parcels_geography, scenario, settings):
 @orca.table(cache=True)
 def parcels():
     df = gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
-                                            '09_01_2015_parcel_berkeley.shp'))
+                                            '01_01_2017_parcel_edmonton.shp'))
     df.set_index('PARCEL_ID', drop=False, inplace=True)
     return df
 
@@ -238,17 +241,21 @@ def parcels_zoning_calculations(parcels):
 def taz(zones):
     return zones
 
-
+## create a new shapefille to replace online data obtion
+##this is the pacels are not going to be developed or redeveloped
+#more like the static parcels in sittings 
 @orca.table(cache=True)
 def parcel_rejections():
-    url = "https://forecast-feedback.firebaseio.com/parcelResults.json"
-    return pd.read_json(url, orient="index").set_index("geomId")
+#    url = "https://forecast-feedback.firebaseio.com/parcelResults.json"
+#    return pd.read_json(url, orient="index").set_index("geomId")
+    return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
+                       'parcel_rejections.shp')).set_index("geomId")
 
 
 @orca.table(cache=True)
 def parcels_geography(parcels):
     df = pd.read_csv(
-        os.path.join(DATA_DIR, "02_01_2016_parcels_geography.csv"),
+        os.path.join(DATA_DIR, "01_01_2017_parcels_geography.csv"),
         index_col="geom_id")
     df = geom_id_to_parcel_id(df, parcels)
     
@@ -259,19 +266,25 @@ def parcels_geography(parcels):
 
     df["juris_name"] = df.jurisdiction_id.map(juris_name)
 
-    df.loc[2054504, "juris_name"] = "Marin County"
-    df.loc[2054505, "juris_name"] = "Santa Clara County"
-    df.loc[2054506, "juris_name"] = "Marin County"
-    df.loc[572927, "juris_name"] = "Contra Costa County"
+    df.loc[1, "juris_name"] = "Edmonton"
+#    df.loc[2054505, "juris_name"] = "Santa Clara County"
+#    df.loc[2054506, "juris_name"] = "Marin County"
+#    df.loc[572927, "juris_name"] = "Contra Costa County"
     # Added to make proportional_elcm step of simulations work
-    df.loc[124131, "juris_name"] = "Berkeley"
+#    df.loc[124131, "juris_name"] = "Berkeley"
     # assert no empty juris values
     assert True not in df.juris_name.isnull().value_counts()
 
-    df["pda_id"] = df.pda_id.str.lower()
+    # Derek asks: Does this really need to be here? If pda_id is actually ever 
+    # a str, it breaks subsidies.py in policy_modifications_of_profit() where 
+    # pct_modifications = parcels_geography.local.eval(policy["profitability_adjustment_formula"])
+    # happens because the policy["profitability_adjustment_formula"] does 
+    # arithmetic operations on pda_id, which break if pda_id is a str. Maybe
+    # the profitability_adjustment_formula shouldn't include pda_id.
+    df["pda_id"] = df.pda_id.astype(object).str.lower()
 
-    # danville wasn't supposed to be a pda
-    df["pda_id"] = df.pda_id.replace("dan1", np.nan)
+#    # danville wasn't supposed to be a pda
+#    df["pda_id"] = df.pda_id.replace("dan1", np.nan)
 
     return df
 
@@ -307,10 +320,12 @@ def get_dev_projects_table(scenario, parcels):
         df = df[df[scenario].astype('bool')]
 
     df = df.dropna(subset=['geom_id'])
+    
+    df.geom_id = df.geom_id.astype(float)
 
     cnts = df.geom_id.isin(parcels.geom_id).value_counts()
     if False in cnts.index:
-        print "%d MISSING GEOMIDS!" % cnts.loc[False]
+        print("%d MISSING GEOMIDS!" % cnts.loc[False])
 
     df = df[df.geom_id.isin(parcels.geom_id)]
 
@@ -331,15 +346,17 @@ def demolish_events(parcels, settings, scenario):
 
 
 @orca.table(cache=True)
-def development_projects(parcels, settings, scenario):    
+def development_projects(parcels, settings, scenario, building_type_map):    
     df = get_dev_projects_table(scenario, parcels)
 
     #take care of columns in buildings
     for col in [
-            'res_sqft', 'res_p_sqrt', 'nres_r_ft', 'ACRES']:
+            'res_p_sqrt', 'nres_r_ft', 'ACRES']:
         df[col] = 0
+    df['res_sqft'] = df.building_sqft.fillna(0) - df.non_residential_sqft.fillna(0)
+    df.res_sqft[df.res_sqft < 0] = 0
     df["redf_year"] = 2012  # default base year
-    df["sale_price"] = np.nan  # null sales price
+    df["sale_price"] = df.last_sale_price  # null sales price
     df["bldg_sqft"] = df.building_sqft.fillna(0)
     df["nres_sqft"] = df.non_residential_sqft.fillna(0)
     df["res_units"] = df.residential_units.fillna(0).astype("int")
@@ -351,16 +368,19 @@ def development_projects(parcels, settings, scenario):
     df["IMPUTATION"] = "_"
     df["X"] = df.x
     df["Y"] = df.y
-    df["ZONE_ID"] = parcels.to_frame(columns=['GEOM_ID', 'ZONE_ID']).loc[parcels['GEOM_ID'] == df['GEOM_ID'].iloc[0], 'ZONE_ID'].iloc[0]
+    if len(df) > 0:
+        df["ZONE_ID"] = parcels.to_frame(columns=['GEOM_ID', 'ZONE_ID']).loc[parcels['GEOM_ID'] == df['GEOM_ID'].iloc[0], 'ZONE_ID'].iloc[0]
+    else:
+        df["ZONE_ID"] = None
     df["bld_year"] = df.year_built
-    df["bldgt_id"] = df.building_type_id
+    df["bldgt_id"] = df.building_type
     df["costar_r"] = None
     df["costar_t"] = None
     df["geometry"] = None
     df["impr_value"] = None
-    df['sqft_unit'] = None
+    df['sqft_unit'] = df.unit_ave_sqft
     df['sale_year'] = df.last_sale_year
-    df['price_per_sqft'] = None
+    df['price_per_sqft'] = df.rent_ave_sqft
     df['lot_size_per_unit'] = None
     df['vacant_residential_units'] = None
     df['juris_ave_income'] = None
@@ -368,20 +388,20 @@ def development_projects(parcels, settings, scenario):
     df['vacant_res_units'] = None
     df['building_age'] = None
     df['tmnode_id'] = None
-    df['building_id'] = None
+    df['building_id'] = df.raw_id
     df['new_construction'] = None
     df['transit_type'] = None
     df['vmt_res_cat'] = None
     df['historic'] = None
     df['modern_condo'] = None
-    df['zone_id'] = None
-    df['general_type'] = None
+    df['zone_id'] = df.ZONE_ID
+    df['general_type'] = df.bldgt_id.map(building_type_map)
     df['sqft_per_job'] = None
     df['node_id'] = None
     df['is_sanfran'] = None
     df['job_spaces'] = None
-    df['unit_price'] = None
-    df['bldg_id'] = None
+    df['unit_price'] = df.rent_ave_unit
+    df['bldg_id'] = df.raw_id
     
     for col in [
             'residential_sqft', 'residential_price', 'non_residential_rent']:
@@ -393,12 +413,29 @@ def development_projects(parcels, settings, scenario):
     df["non_residential_sqft"] = df.non_residential_sqft.fillna(0)
     df["residential_units"] = df.residential_units.fillna(0).astype("int")
     df["deed_restricted_units"] = 0
+    df["ACC_ID"] = None
+    df["BCR"] = None
+    df["BUILDING_G"] = None
+    df["Frontage"] = None
+    df["HousingTyp"] = None
+    df["LUArea"] = None
+    df["LUDesc"] = None
+    df["LUTaxRoll"] = None
+    df["LUType"] = None
+    df["NbhdNo"] = None
+    df["NbhdSector"] = None
+    df["OBJECTID"] = None
+    df["PID"] = None
+    df["PicArea"] = None
+    df["ZoneDistr"] = None
+    df["Zoning"] = None
+    df["dif"] = None
 
     df["building_type"] = df.building_type.replace("HP", "OF")
     df["building_type"] = df.building_type.replace("GV", "OF")
     df["building_type"] = df.building_type.replace("SC", "OF")
 
-    building_types = settings["building_type_map"].keys()
+    building_types = list(settings["building_type_map"].keys())
     # only deal with building types we recorgnize
     # otherwise hedonics break
     df = df[df.building_type.isin(building_types)]
@@ -410,10 +447,10 @@ def development_projects(parcels, settings, scenario):
     df = df.dropna(subset=["year_built"])
     df = df[df.action.isin(["add", "build"])]
 
-    print "Describe of development projects"
+    print("Describe of development projects")
     # this makes sure dev projects has all the same columns as buildings
     # which is the point of this method
-    print df[orca.get_table('buildings').local_columns].describe()
+    print(df[orca.get_table('buildings').local_columns].describe())
 
     return df
 
@@ -427,21 +464,22 @@ def check_for_preproc(store, preproc_table, filename):
 @orca.table(cache=True)
 def jobs(store):
     return check_for_preproc(store, 'jobs_preproc', 
-                             '09_01_2015_job_berkeley.shp')
+                             '01_01_2017_job_edmonton.shp')
 
 
 @orca.table(cache=True)
 def households(store):
     return check_for_preproc(store, 'households_preproc',
-                             '09_01_2015_households_berkeley.shp')
+                             '01_01_2017_households_edmonton.shp')
 
 
 @orca.table(cache=True)
 def buildings(store):
-    df = check_for_preproc(store, 'buildings_preproc',
-                             '09_01_2015_building_berkeley.shp')
+    if 'buildings_preproc' not in store:
+        return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR, 
+        '01_01_2017_bulding_edmonton.shp')).set_index('bldg_id')
+    return store['buildings_preproc']
 #    if df.index.name == 'APN':
-    return df
 #    return df.set_index('APN')
 
 
@@ -474,7 +512,7 @@ def household_controls(household_controls_unstacked):
 def employment_controls_unstacked():
     return pd.read_csv(
         os.path.join(DATA_DIR, "employment_controls.csv"),
-        index_col='year')
+        index_col='year', thousands=',')
 
 
 # the following overrides employment_controls
@@ -489,6 +527,16 @@ def employment_controls(employment_controls_unstacked):
     # rename to match legacy table
     df.columns = ['empsix_id', 'number_of_jobs']
     return df
+
+
+# the following overrides logsums 
+# table defined in urbansim_defaults
+@orca.table("logsums", cache=True)
+def logsums(settings):
+    logsums_index = settings.get("logsums_index_col", "taz")
+    return pd.read_csv(os.path.join(DATA_DIR,
+                                    'logsums.csv'),
+                       index_col=logsums_index)
 
 
 @orca.table(cache=True)
@@ -515,8 +563,8 @@ def superdistricts():
 
 
 @orca.table(cache=True)
-def abag_targets():
-    return pd.read_csv(os.path.join(DATA_DIR, "abag_targets.csv"))
+def coe_targets():
+    return pd.read_csv(os.path.join(DATA_DIR, "coe2040_targets.csv"))
 
 
 @orca.table(cache=True)
@@ -531,10 +579,7 @@ def taz_geography(superdistricts):
     tg["subregion_id"] = \
         superdistricts.subregion.loc[tg.superdistrict].values
     tg["subregion"] = tg.subregion_id.map({
-        1: "Core",
-        2: "Urban",
-        3: "Suburban",
-        4: "Rural"
+        1: "Edmonton",
     })
     return tg
 
@@ -543,8 +588,10 @@ def taz_geography(superdistricts):
 @orca.table(cache=True)
 def zones():
     # sort index so it prints out nicely when we want it to
+    # add ZONE_ID as index to solve no taz data output
     return gp.GeoDataFrame.from_file(os.path.join(DATA_DIR,
-                       '09_01_2015_zones_berkeley.shp')).sort_index()
+                       '01_01_2017_zones_edmonton.shp')).set_index('ZONE_ID',
+                                                        drop=False).sort_index()
     
     
 @orca.table(cache=True)
@@ -563,3 +610,4 @@ orca.broadcast('parcels_geography', 'buildings', cast_index=True,
 orca.broadcast('tmnodes', 'buildings', cast_index=True, onto_on='tmnode_id')
 orca.broadcast('taz_geography', 'parcels', cast_index=True,
                onto_on='zone_id')
+orca.broadcast('buildings', 'costar', cast_on='general_type', onto_on='general_type')

@@ -1,7 +1,9 @@
 import orca
+from urbansim.utils import networks
 import pandas as pd
+import numpy as np
 from urbansim.utils import misc
-from validation import assert_series_equal
+from .validation import assert_series_equal
 
 
 # the way this works is there is an orca step to do jobs allocation, which
@@ -11,108 +13,121 @@ from validation import assert_series_equal
 # on the fly but it takes about 4 minutes so way to long to do on the fly
 
 
-def allocate_jobs(baseyear_taz_controls, settings, buildings, parcels):
-    # this does a new assignment from the controls to the buildings
+#def allocate_jobs(baseyear_neigh_controls, settings, buildings, parcels):
+#    # this does a new assignment from the controls to the buildings
+#
+#    # first disaggregate the job totals
+#    sector_map = settings["naics_to_empsix"]
+#    jobs = []
+#    for taz, row in baseyear_neigh_controls.local.iterrows():
+#        for sector_col, num in row.iteritems():
+#
+#            # not a sector total
+#            if not sector_col.startswith("emp_sec"):
+#                continue
+#
+#            # get integer sector id
+#            sector_id = int(''.join(c for c in sector_col if c.isdigit()))
+#            sector_name = sector_map[sector_id]
+#
+#            jobs += [[sector_id, sector_name, taz, -1]] * num
+#
+#    df = pd.DataFrame(jobs, columns=[
+#        'sector_id', 'empsix', 'taz', 'building_id'])
+#
+#    zone_id = misc.reindex(parcels.zone_id, buildings.parcel_id)
+#
+#    # variable to hold the taz of areas with no weight
+#    zero_weight = []
+#
+#    # just do random assignment weighted by job spaces - we'll then
+#    # fill in the job_spaces if overfilled in the next step (code
+#    # has existed in urbansim for a while)
+#    for taz, cnt in df.groupby('taz').size().iteritems():
+#        
+#        potential_add_locations = buildings.nres_sqft[
+#            (zone_id == taz) &
+#            (buildings.nres_sqft > 0)]
+#
+#        if len(potential_add_locations) == 0:
+#            # if no non-res buildings, put jobs in res buildings
+#            potential_add_locations = buildings.bldg_sqft[
+#                zone_id == taz]
+#            
+#        # if no non-res or res buildings, skip the taz for now
+#        if len(potential_add_locations) == 0 or sum(potential_add_locations) == 0:
+#            zero_weight.append(taz)
+#            continue
+#
+#        weights = potential_add_locations / potential_add_locations.sum()
+#
+#        # print taz, len(potential_add_locations),\
+#        #     potential_add_locations.sum(), cnt
+#
+#        buildings_ids = potential_add_locations.sample(
+#            cnt, replace=True, weights=weights)
+#
+#        df["building_id"][df.taz == taz] = buildings_ids.index.values
+#
+#    s = zone_id.loc[df.building_id].value_counts()
+#    s.index = s.index.map(int)
+#    # assert that we at least got the total employment right after assignment
+#    assert_series_equal(baseyear_neigh_controls.to_frame()[~baseyear_taz_controls.to_frame().index.isin(zero_weight)].emp_tot, s)
+#
+#    return df
 
-    # first disaggregate the job totals
-    sector_map = settings["naics_to_empsix"]
-    jobs = []
-    for taz, row in baseyear_taz_controls.local.iterrows():
-        for sector_col, num in row.iteritems():
 
-            # not a sector total
-            if not sector_col.startswith("emp_sec"):
-                continue
-
-            # get integer sector id
-            sector_id = int(''.join(c for c in sector_col if c.isdigit()))
-            sector_name = sector_map[sector_id]
-
-            jobs += [[sector_id, sector_name, taz, -1]] * num
-
-    df = pd.DataFrame(jobs, columns=[
-        'sector_id', 'empsix', 'taz', 'building_id'])
-
-    zone_id = misc.reindex(parcels.zone_id, buildings.parcel_id)
-
-    # variable to hold the taz of areas with no weight
-    zero_weight = []
-
-    # just do random assignment weighted by job spaces - we'll then
-    # fill in the job_spaces if overfilled in the next step (code
-    # has existed in urbansim for a while)
-    for taz, cnt in df.groupby('taz').size().iteritems():
-        
-        potential_add_locations = buildings.nres_sqft[
-            (zone_id == taz) &
-            (buildings.nres_sqft > 0)]
-
-        if len(potential_add_locations) == 0:
-            # if no non-res buildings, put jobs in res buildings
-            potential_add_locations = buildings.bldg_sqft[
-                zone_id == taz]
-            
-        # if no non-res or res buildings, skip the taz for now
-        if len(potential_add_locations) == 0 or sum(potential_add_locations) == 0:
-            zero_weight.append(taz)
-            continue
-
-        weights = potential_add_locations / potential_add_locations.sum()
-
-        # print taz, len(potential_add_locations),\
-        #     potential_add_locations.sum(), cnt
-
-        buildings_ids = potential_add_locations.sample(
-            cnt, replace=True, weights=weights)
-
-        df["building_id"][df.taz == taz] = buildings_ids.index.values
-
-    s = zone_id.loc[df.building_id].value_counts()
-    s.index = s.index.map(int)
-    # assert that we at least got the total employment right after assignment
-    assert_series_equal(baseyear_taz_controls.to_frame()[~baseyear_taz_controls.to_frame().index.isin(zero_weight)].emp_tot, s)
-
-    return df
+#@orca.step()
+#def move_jobs_from_portola_to_san_mateo_county(parcels, buildings, jobs_df):
+#    # need to move jobs from portola valley to san mateo county
+#    NUM_IN_PORTOLA = 1500
+#
+#    juris = misc.reindex(
+#        parcels.juris, misc.reindex(buildings.parcel_id, jobs_df.building_id))
+#
+#    # find jobs in portols valley to move
+#    portola = jobs_df[juris == "Portola Valley"]
+#    move = portola.sample(len(portola) - NUM_IN_PORTOLA)
+#
+#    # find places in san mateo to which to move them
+#    san_mateo = jobs_df[juris == "San Mateo County"]
+#    move_to = san_mateo.sample(len(move))
+#
+#    jobs_df.loc[move.index, "building_id"] = move_to.building_id.values
+#
+#    return jobs_df
 
 
 @orca.step()
-def move_jobs_from_portola_to_san_mateo_county(parcels, buildings, jobs_df):
-    # need to move jobs from portola valley to san mateo county
-    NUM_IN_PORTOLA = 1500
-
-    juris = misc.reindex(
-        parcels.juris, misc.reindex(buildings.parcel_id, jobs_df.building_id))
-
-    # find jobs in portols valley to move
-    portola = jobs_df[juris == "Portola Valley"]
-    move = portola.sample(len(portola) - NUM_IN_PORTOLA)
-
-    # find places in san mateo to which to move them
-    san_mateo = jobs_df[juris == "San Mateo County"]
-    move_to = san_mateo.sample(len(move))
-
-    jobs_df.loc[move.index, "building_id"] = move_to.building_id.values
-
-    return jobs_df
-
-
-@orca.step()
-def preproc_jobs(store, jobs, baseyear_taz_controls, settings, parcels, buildings):
+def preproc_jobs(store, jobs, settings): #, baseyear_neigh_controls, settings, parcels, buildings):
 #    buildings = store['buildings']
 
-    df = allocate_jobs(baseyear_taz_controls, settings, buildings, parcels)
-    df['bldg_id'] = jobs.bldg_id
+#    df = allocate_jobs(baseyear_neigh_controls, settings, buildings, parcels)
+#    df['bldg_id'] = jobs.bldg_id
 #    jobs = move_jobs_from_portola_to_san_mateo_county(parcels, buildings, jobs)
-    store['jobs_preproc'] = df
+
+    jobs['empsix'] = jobs.job_t.map(settings['naics_to_empsix'])
+    
+    jobs = jobs.to_frame()
+    
+    # Duplicate job rows for job locations that have more than one job 
+    # (initially is stored with one column for each company)
+    new_rows = []
+    for i, row in jobs.iterrows():
+        if row.jobs > 1:
+            new_rows.extend([row for x in range(row.jobs-1)])
+    jobs = jobs.append(pd.DataFrame(new_rows, columns=jobs.columns), ignore_index=True)
+    
+    store['jobs_preproc'] = pd.DataFrame(jobs)
 
 
 @orca.step()
 def preproc_households(store, households):
 
     df = households
-
+#    df['tenure'] = [1]*176680 + [2]*176681
     df['tenure'] = df.tenure.map({1: 'own', 2: 'rent'})
-
+    
     # need to keep track of base year income quartiles for use in the
     # transition model - even caching doesn't work because when you add
     # rows via the transitioning, you automatically clear the cache!
@@ -125,7 +140,7 @@ def preproc_households(store, households):
     # there are some overrides where we move households around in order
     # to match the city totals - in the future we will resynthesize and this
     # can go away - this csv is generated by scripts/match_city_totals.py
-#    overrides = pd.read_csv("data/household_building_id_overrides.csv",
+#    overrides = pd.read_csv("coedata/household_building_id_overrides.csv",
 #                            index_col="household_id").building_id
 #    df.to_frame().loc[overrides.index, "bldg_id"] = overrides.values
 
@@ -144,12 +159,15 @@ def preproc_households(store, households):
 def assign_deed_restricted_units(df, parcels):
 
     df["deed_restricted_units"] = 0
-
+    
+    # DELETE ME!!
+#    df['residential_units'] = 1
+      
     zone_ids = misc.reindex(parcels.zone_id, df.parcel_id).\
         reindex(df.index).fillna(-1)
     # sample deed restricted units to match current deed restricted unit
     # zone totals
-    for taz, row in pd.read_csv('myData/deed_restricted_zone_totals.csv',
+    for taz, row in pd.read_csv('coedata/deed_restricted_zone_totals.csv',
                                 index_col='taz_key').iterrows():
 
         cnt = row["units"]
@@ -171,14 +189,14 @@ def assign_deed_restricted_units(df, parcels):
         units = pd.Series(buildings_ids.index.values).value_counts()
         df.loc[units.index, "deed_restricted_units"] += units.values
 
-    print "Total deed restricted units after random selection: %d" % \
-        df.deed_restricted_units.sum()
+    print("Total deed restricted units after random selection: %d" % \
+        df.deed_restricted_units.sum())
 
     df["deed_restricted_units"] = \
         df[["deed_restricted_units", "residential_units"]].min(axis=1)
 
-    print "Total deed restricted units after truncating to res units: %d" % \
-        df.deed_restricted_units.sum()
+    print("Total deed restricted units after truncating to res units: %d" % \
+        df.deed_restricted_units.sum())
 
     return df
 
@@ -192,15 +210,7 @@ def correct_baseyear_vacancies(buildings, parcels, jobs, store):
 
     '''
     These are the original vacancies
-    Alameda          0.607865
-    Contra Costa     0.464277
-    Marin            0.326655
-    Napa             0.427900
-    San Francisco    0.714938
-    San Mateo        0.285090
-    Santa Clara      0.368031
-    Solano           0.383663
-    Sonoma           0.434263
+    Edmonton          0.2
     '''
 
     # get buildings by county
@@ -210,35 +220,11 @@ def correct_baseyear_vacancies(buildings, parcels, jobs, store):
     # this is the maximum vacancy you can have any a building so it NOT the
     # same thing as setting the vacancy for the entire county
     SURPLUS_VACANCY_COUNTY = buildings_county.map({
-       "Alameda": .42,
-       "Contra Costa": .57,
-       "Marin": .28,
-       "Napa": .7,
-       "San Francisco": .08,
-       "San Mateo": .4,
-       "Santa Clara": .32,
-       "Solano": .53,
-       "Sonoma": .4
+       "Edmonton": .2,
     }).fillna(.2)
 
     SURPLUS_VACANCY_JURIS = buildings_juris.map({
-       "Berkeley": .65,
-       "Atherton": 0.05,
-       "Belvedere": 0,
-       "Corte Madera": 0,
-       "Cupertino": .1,
-       "Healdsburg": 0,
-       "Larkspur": 0,
-       "Los Altos Hills": 0,
-       "Los Gatos": 0,
-       "Monte Sereno": 0,
-       "Piedmont": 0,
-       "Portola Valley": 0,
-       "Ross": 0,
-       "San Anselmo": 0,
-       "Saratoga": 0,
-       "Woodside": 0,
-       "Alameda": .2
+       "Edmonton": .2
     })
 
     SURPLUS_VACANCY = pd.DataFrame([
@@ -263,15 +249,15 @@ def correct_baseyear_vacancies(buildings, parcels, jobs, store):
 
     jobs_county = misc.reindex(buildings_county, jobs.building_id)
 
-    print "Vacancy rate by county:\n", \
+    print("Vacancy rate by county:\n", \
         buildings.job_spaces.groupby(buildings_county).sum() / \
-        jobs_county.value_counts() - 1.0
+        jobs_county.value_counts() - 1.0)
 
     jobs_juris = misc.reindex(buildings_juris, jobs.building_id)
 
     s = buildings.job_spaces.groupby(buildings_juris).sum() / \
         jobs_juris.value_counts() - 1.0
-    print "Vacancy rate by juris:\n", s.to_string()
+    print("Vacancy rate by juris:\n", s.to_string())
 
     return buildings
 
@@ -326,8 +312,6 @@ def preproc_buildings_start(store, buildings, parcels, manual_edits):
       16: "PA2"
     })
 
-    del df["building_type_id"]  # we won't use building type ids anymore
-
     # keeps parking lots from getting redeveloped
     df["building_sqft"][df.building_type.isin(["PA", "PA2"])] = 0
     df["non_residential_sqft"][df.building_type.isin(["PA", "PA2"])] = 0
@@ -379,3 +363,42 @@ def baseline_data_checks(store):
 
     # check job spaces >= jobs
     pass
+
+@orca.step()
+def neighborhood_vars_preproc(store, net, jobs):
+    # This exists to save time in other steps by relegating the first 
+    # neighborhood_vars function to preprocessing, since this is a time-
+    # consuming step
+    
+    # Ensure we're using the preprocessed jobs table
+    orca.add_table('jobs', store['jobs_preproc'])
+    
+    nodes = networks.from_yaml(net["walk"], "neighborhood_vars.yaml")
+    nodes = nodes.replace(-np.inf, np.nan)
+    nodes = nodes.replace(np.inf, np.nan)
+    nodes = nodes.fillna(0)
+
+    print(nodes.describe())
+    orca.add_table("nodes", nodes)
+    store['neighborhood_vars_preproc'] = nodes
+
+
+@orca.step()
+def regional_vars_preproc(store, net, parcels):
+    # This exists to save time in other steps by relegating the first 
+    # regional_vars function to preprocessing, since this is a time-
+    # consuming step
+    
+    # Ensure we're using the preprocessed jobs table
+    orca.add_table('jobs', store['jobs_preproc'])
+    
+    nodes = networks.from_yaml(net["drive"], "regional_vars.yaml")
+    nodes = nodes.fillna(0)
+
+#    nodes2 = pd.read_csv('coedata/regional_poi_distances.csv',
+#                         index_col="tmnode_id")
+#    nodes = pd.concat([nodes, nodes2], axis=1)
+
+    print(nodes.describe())
+    orca.add_table("tmnodes", nodes)
+    store['regional_vars_preproc'] = nodes

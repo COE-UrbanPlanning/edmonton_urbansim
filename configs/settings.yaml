@@ -8,14 +8,16 @@ aggregation_tables:
 
 # large baus files are stored in s3 - this key gives the settings for fetching them
 s3_settings:
-  bucket: bayarea_urbansim
+  bucket: edmonton_urbansim
   files:
-    - 2015_09_01_bayarea_v3.h5
-    - 2015_06_01_osm_bayarea4326.h5
-    - 2015_12_21_zoning_parcels.csv
-    - 02_01_2016_parcels_geography.csv
-    - 2015_08_29_costar.csv
-    - 2015_08_03_tmnet.h5
+    - 2017_01_01_edmonton_v3.h5
+    - 2017_01_01_osm_edmonton_edges.csv
+    - 2017_01_01_osm_edmonton_nodes.csv
+    - 2017_01_01_zoning_parcels.shp
+    - 01_01_2017_parcels_geography.csv
+    - 2017_01_01_costar.csv
+    - 2015_08_03_tmnet_edges.csv
+    - 2015_08_03_tmnet_nodes.csv
 
 
 # towards the end of the process we got a new tpp_id and didn't have the ability to
@@ -61,37 +63,8 @@ parcel_size_factor: 43560
 
 # this is really because we don't have limits right now for retail
 # we can disallow new retail per city using this list of cities
-eliminate_retail_zoning_from_juris:
-  - 'Sonoma County'
-  - 'Contra Costa County'
-  - 'San Mateo County'
-  - 'Solano County'
-  - 'Napa County'
-  - 'Marin County'
-  - 'Benicia'
-  - 'Brentwood'
-  - 'Antioch'
-  - 'Atherton'
-  - 'Fairfax'
-  - 'Hillsborough'
-  - 'Belvedere'
-  - 'Yountville'
-  - 'Woodside'
-  - 'Monte Sereno'
-  - 'Los Altos Hills'
-  - 'Half Moon Bay'
-  - 'Larkspur'
-  - 'Portola Valley'
-  - 'Saratoga'
-  - 'Cloverdale'
-  - 'Livermore'
-  - 'Los Gatos'
-  - 'Tiburon'
-  - 'Piedmont'
-  - 'Ross'
-  - 'Atherton'
-  - 'Belmont'
-  - 'Clayton'
+eliminate_retail_zoning_from_juris: {}
+#  - 'Sonoma County'
 
 
 # we don't have great sqft_per_unit info across the bay area (building data
@@ -121,307 +94,39 @@ inclusionary_housing_settings:
     - type: jurisdictions
       amount: .2
       values:
-      - San Francisco
+      - Edmonton
   "1":
     - type: jurisdictions
       description: low setting
       amount: .05
       values:
-      - Alameda
-      - Alameda County
-      - Albany
-      - Atherton
-      - Belmont
-      - Belvedere
-      - Berkeley
-      - Burlingame
-      - Campbell
-      - Cloverdale
-      - Concord
-      - Contra Costa County
-      - Corte Madera
-      - Cupertino
-      - Danville
-      - Dublin
-      - East Palo Alto
-      - El Cerrito
-      - Emeryville
-      - Fairfax
-      - Foster City
-      - Fremont
-      - Lafayette
-      - Larkspur
-      - Los Altos
-      - Los Altos Hills
-      - Los Gatos
-      - Menlo Park
-      - Millbrae
-      - Milpitas
-      - Monte Sereno
-      - Moraga
-      - Mountain View
-      - Orinda
-      - Palo Alto
-      - Piedmont
-      - Pleasanton
-      - Redwood City
-      - Ross
-      - San Anselmo
-      - San Bruno
-      - San Carlos
-      - San Francisco
-      - San Jose
-      - San Mateo
-      - San Mateo County
-      - San Ramon
-      - Santa Clara
-      - Santa Rosa
-      - Saratoga
-      - Sausalito
-      - Sunnyvale
-      - Tiburon
-      - Union City
-      - Walnut Creek
+      - Edmonton
   "2":
     - type: jurisdictions
       description: medium setting
       amount: .1
       values:
-      - Alameda
-      - Alameda County
-      - Albany
-      - American Canyon
-      - Antioch
-      - Belmont
-      - Benicia
-      - Berkeley
-      - Brisbane
-      - Burlingame
-      - Campbell
-      - Cloverdale
-      - Colma
-      - Concord
-      - Contra Costa County
-      - Cotati
-      - Cupertino
-      - Daly City
-      - Danville
-      - Dixon
-      - Dublin
-      - East Palo Alto
-      - El Cerrito
-      - Emeryville
-      - Fairfield
-      - Fremont
-      - Gilroy
-      - Hayward
-      - Hercules
-      - Lafayette
-      - Livermore
-      - Los Altos
-      - Martinez
-      - Menlo Park
-      - Millbrae
-      - Milpitas
-      - Moraga
-      - Morgan Hill
-      - Mountain View
-      - Napa
-      - Newark
-      - Oakland
-      - Oakley
-      - Orinda
-      - Palo Alto
-      - Petaluma
-      - Pinole
-      - Pittsburg
-      - Pleasant Hill
-      - Pleasanton
-      - Redwood City
-      - Richmond
-      - Rohnert Park
-      - San Bruno
-      - San Carlos
-      - San Francisco
-      - San Jose
-      - San Leandro
-      - San Mateo
-      - San Mateo County
-      - San Pablo
-      - San Rafael
-      - San Ramon
-      - Santa Clara
-      - Santa Rosa
-      - Sebastopol
-      - South San Francisco
-      - Suisun City
-      - Sunnyvale
-      - Union City
-      - Vacaville
-      - Vallejo
-      - Walnut Creek
-      - Windsor  
+      - Edmonton
+
   "3":
     - type: jurisdictions
       description: high setting
       amount: .2
       values:
-      - San Jose
-      - Oakland
-      - San Francisco
+      - Edmonton
+
   "4":
     - type: jurisdictions
       description: medium setting
       amount: .1
       values:
-      - Alameda
-      - Alameda County
-      - Albany
-      - American Canyon
-      - Antioch
-      - Belmont
-      - Benicia
-      - Berkeley
-      - Brisbane
-      - Burlingame
-      - Campbell
-      - Cloverdale
-      - Colma
-      - Concord
-      - Contra Costa County
-      - Cotati
-      - Cupertino
-      - Daly City
-      - Danville
-      - Dixon
-      - Dublin
-      - East Palo Alto
-      - El Cerrito
-      - Emeryville
-      - Fairfield
-      - Fremont
-      - Gilroy
-      - Hayward
-      - Hercules
-      - Lafayette
-      - Livermore
-      - Los Altos
-      - Martinez
-      - Menlo Park
-      - Millbrae
-      - Milpitas
-      - Moraga
-      - Morgan Hill
-      - Mountain View
-      - Napa
-      - Newark
-      - Oakland
-      - Oakley
-      - Orinda
-      - Palo Alto
-      - Petaluma
-      - Pinole
-      - Pittsburg
-      - Pleasant Hill
-      - Pleasanton
-      - Redwood City
-      - Richmond
-      - Rohnert Park
-      - San Bruno
-      - San Carlos
-      - San Francisco
-      - San Jose
-      - San Leandro
-      - San Mateo
-      - San Mateo County
-      - San Pablo
-      - San Rafael
-      - San Ramon
-      - Santa Clara
-      - Santa Rosa
-      - Sebastopol
-      - South San Francisco
-      - Suisun City
-      - Sunnyvale
-      - Union City
-      - Vacaville
-      - Vallejo
-      - Walnut Creek
-      - Windsor
+      - Edmonton
   "5":
     - type: jurisdictions
       description: higher setting
-      amount: .2
+      amount: .4
       values:
-      - Alameda
-      - Alameda County
-      - Albany
-      - American Canyon
-      - Belmont
-      - Berkeley
-      - Brisbane
-      - Burlingame
-      - Campbell
-      - Cloverdale
-      - Colma
-      - Concord
-      - Contra Costa County
-      - Cotati
-      - Cupertino
-      - Daly City
-      - Danville
-      - Dublin
-      - East Palo Alto
-      - El Cerrito
-      - Emeryville
-      - Fairfield
-      - Fremont
-      - Gilroy
-      - Hayward
-      - Hercules
-      - Lafayette
-      - Livermore
-      - Los Altos
-      - Martinez
-      - Menlo Park
-      - Millbrae
-      - Milpitas
-      - Moraga
-      - Morgan Hill
-      - Mountain View
-      - Napa
-      - Newark
-      - Oakland
-      - Orinda
-      - Palo Alto
-      - Petaluma
-      - Pinole
-      - Pleasant Hill
-      - Pleasanton
-      - Redwood City
-      - Richmond
-      - San Bruno
-      - San Carlos
-      - San Francisco
-      - San Jose
-      - San Leandro
-      - San Mateo
-      - San Mateo County
-      - San Pablo
-      - San Rafael
-      - San Ramon
-      - Santa Clara
-      - Santa Rosa 
-      - Sebastopol
-      - South San Francisco
-      - Suisun City
-      - Sunnyvale
-      - Union City
-      - Vacaville
-      - Vallejo
-      - Walnut Creek
-      - Windsor
-
+      - Edmonton
 
 # these are the settings for various policies that are in play
 acct_settings:
@@ -441,37 +146,13 @@ acct_settings:
 
     # these are all county specific affordable housing bonds but right now
     # they aren't enabled in any scenarios
-    san_mateo_bond_settings:
-      name: "San Mateo Affordable Housing Bond"
-      sending_buildings_subaccount_def: regional
-      total_amount: 40000000
-      receiving_buildings_filter: county == 'San Mateo'
-      subsidize_affordable: True
-      enable_in_scenarios: []
-
-    alameda_bond_settings:
-      name: "Alameda Affordable Housing Bond"
-      sending_buildings_subaccount_def: regional
-      total_amount: 20000000
-      receiving_buildings_filter: county == 'Alameda'
-      subsidize_affordable: True
-      enable_in_scenarios: []
-
-    santa_clara_bond_settings:
-      name: "Santa Clara Affordable Housing Bond"
-      sending_buildings_subaccount_def: regional
-      total_amount: 31000000
-      receiving_buildings_filter: county == 'Santa Clara'
-      subsidize_affordable: True
-      enable_in_scenarios: []
-
-    santa_francisco_bond_settings:
-      name: "San Francisco Affordable Housing Bond"
-      sending_buildings_subaccount_def: regional
-      total_amount: 19000000
-      receiving_buildings_filter: county == 'San Francisco'
-      subsidize_affordable: True
-      enable_in_scenarios: []
+#    san_mateo_bond_settings:
+#      name: "San Mateo Affordable Housing Bond"
+#      sending_buildings_subaccount_def: regional
+#      total_amount: 40000000
+#      receiving_buildings_filter: county == 'San Mateo'
+#      subsidize_affordable: True
+#      enable_in_scenarios: []
 
     # parcel tax settings
     parcel_tax_settings:
@@ -610,10 +291,14 @@ rent_equilibration:
 # some info on where to get the accessibliity networks
 build_networks:
   walk:
-      name: 2015_06_01_osm_bayarea4326.h5
+      edge_name: 2017_01_01_osm_edmonton_edges.csv
+      node_name: 2017_01_01_osm_edmonton_nodes.csv
+#      name: 2015_06_01_osm_bayarea4326.h5
       max_distance: 3000
   drive:
-      name: 2015_08_03_tmnet.h5
+      edge_name: 2017_01_01_tmnet_edges.csv
+      node_name: 2017_01_01_tmnet_nodes.csv
+#      name: 2015_08_03_tmnet.h5
       max_distance: 45
       weight_col: "CTIMEA"
 
@@ -687,7 +372,7 @@ non_residential_developer:
 
 
 # location of the hdf store
-store: 2015_09_01_bayarea_v3.h5
+store: 2017_01_01_edmonton_v3.h5
 
 
 # active scenario if not specified on the command line
@@ -763,6 +448,24 @@ building_type_map:
   PA: Parking
   PA2: Parking
   
+#  building_type_map:
+#  HS: Residential-single family
+#  HT: Residential-townhouse
+#  HM: Residential-medium-high density
+#  OF: Office
+#  HO: Hotel
+#  SC: School
+#  IL: Industrial-light
+#  IW: Industrial-waterfront
+#  IH: Industrial-general
+#  RS: Retail
+#  RB: Retail
+#  MR: Residential-mixed
+#  MT: Retail
+#  ME: Office-mixed
+#  PA: Parking
+#  PA2: Parking
+#  
 
 # this maps building "forms" from the developer model
 # to building types so that when the developer builds a
@@ -821,42 +524,19 @@ building_sqft_per_job:
 
 # county ids in parcels geography (I think FIPS codes)
 county_id_map:
-  85: Santa Clara
-  1: Alameda
-  13: Contra Costa
-  81: San Mateo
-  97: Sonoma
-  75: San Francisco
-  95: Solano
-  41: Marin
-  55: Napa
+  1: Edmonton
   
   
   # county ids in parcels geography (I think FIPS codes)
 reverse_county_id_map:
-  Santa Clara: 85
-  Alameda: 1
-  Contra Costa: 13
-  San Mateo: 81
-  Sonoma: 97
-  San Francisco: 75
-  Solano: 95
-  Marin: 41
-  Napa: 55
+  Edmonton: 1
 
 
 
 # county ids for the travel model
 county_id_tm_map:
-  3: Santa Clara
-  4: Alameda
-  5: Contra Costa
-  2: San Mateo
-  8: Sonoma
-  1: San Francisco
-  6: Solano
-  9: Marin
-  7: Napa
+  1: Edmonton
+
 
 # price shisfters per pda - price is multiplied by this amount
 pda_price_shifters:
@@ -873,16 +553,7 @@ pda_price_shifters:
 
 # cost shifters per county - cost is multiplied by this amount
 cost_shifters:
-  "Santa Clara": 1.3
-  "San Francisco": 0.8
-  "San Mateo": 0.8
-  "Sonoma": 1.0
-  "Solano": 0.75
-  "Alameda": 0.7
-  "Napa": 0.9
-  "Marin": 1.0
-  "Contra Costa": 0.75
-
+  "Edmonton": 1
 
 # limits!  these are very important as they give per scenario limits in terms of
 # general_type and in terms of resdential units and job spaces - believe scenarios
@@ -890,93 +561,22 @@ cost_shifters:
 development_limits:
   default:
     Office:
-      'Alameda': 100
-      'Atherton': 0
-      'Belvedere': 0
-      'Belmont': 0
-      'Benicia': 25
-      'Burlingame': 275
-      'Clayton': 0
-      'Colma': 0
-      'Concord': 1000
-      'Cupertino': 0
-      'Daly City': 50
-      'Fairfax': 0
-      'Half Moon Bay': 0
-      'Healdsburg': 0
-      'Hillsborough': 0
-      'Larkspur': 0
-      'Los Altos Hills': 0
-      'Los Gatos': 0
-      'Milpitas': 325
-      'Mill Valley': 0
-      'Millbrae': 200
-      'Monte Sereno': 0
-      'Orinda': 0
-      'Palo Alto': 175
-      'Petaluma': 150
-      'Piedmont': 0
-      'Pleasanton': 275
-      'Portola Valley': 0
-      'Redwood City': 550
-      'Ross': 0
-      'San Anselmo': 0
-      'San Francisco': 3500
-      'San Mateo': 200
-      'San Rafael': 0
-      'St. Helena': 5
-      'Saratoga': 0
-      'Sonoma': 0
-      'Tiburon': 0
-      'Union City': 5
-      'Woodside': 0 
-      'Alameda County': 0
-      'Contra Costa County': 0
-      'Marin County': 0
-      'Solano County': 0
-      'Sonoma County': 0
+      'Edmonton': 100
+
     Residential:
-      'Cloverdale': 50
-      'Fairfax': 8
-      'Half Moon Bay': 44
-      'Petaluma': 75
-      'San Mateo': 400
-      'Sebastopol': 10
-      'St. Helena': 10
-      'Woodside': 5
-      'Yountville': 2
-      'Alameda County': 205
-      'Napa County': 25
-      'Solano County': 230
-      'Sonoma County': 50
+      'Edmonton': 5000
+
   "2":
     Office:
-      'San Francisco': 5250
+      'Edmonton': 500
 
 
 # a list of parcel geom ids which urbansim doesn't touch - this are viewed as exceptions
 # and are often dealt with using specific models (SDEM and possibly proportional jobs model)
 # which ignore this list
 static_parcels:
-  - 11280465768398 # city hall
-  - 2240580234395 # sf state
-  - 7299494955245 # sj state
-  - 13202883289710 # sj state
-  - 6193503633797 # sj state
-  - 8603860488630 # sj state
-  - 8173572322083 # ucb
-  - 14259504015679 # labs
-  - 3473860030354 # sfo
-  - 11976417381057 # sf general
-  - 5600199824880 # more sf gen
-  - 9143399820283
-  - 2161358104676
-  - 15636310238820
-  - 14512305680993 # sonoma state
-  - 15424804982410 # cal state east bay
-  - 7414256675266 # cal state east bay
-  - 8817315949318 # san quentin
-  - 12668875358422 # san quentin
+#  - 11280465768398 # city hall
+
   
   
   

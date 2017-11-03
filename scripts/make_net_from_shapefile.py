@@ -3,7 +3,7 @@
 '''
 import geopandas as gpd
 from fiona.crs import from_epsg
-gdf = gpd.GeoDataFrame.from_file('/home/ubuntu/data/avgload5period.shp')
+gdf = gpd.GeoDataFrame.from_file('/home/ubuntu/coedata/avgload5period.shp')
 gdf.crs = from_epsg(3740)
 gdf = gdf.to_crs(epsg=4326)
 
@@ -40,9 +40,9 @@ for feature in json.load(open('out.json'))['features']:
     nodes[edge["from"]] = {"x": p1[0], "y": p1[1]}
     nodes[edge["to"]] = {"x": p2[0], "y": p2[1]}
 
-store["nodes"] = pd.DataFrame(nodes.values(), index=nodes.keys())
+store["nodes"] = pd.DataFrame(list(nodes.values()), index=list(nodes.keys()))
 store["edges"] = pd.DataFrame(edges)
 
-print store["nodes"].describe()
-print store["nodes"].index
-print store["edges"].describe()
+print(store["nodes"].describe())
+print(store["nodes"].index)
+print(store["edges"].describe())

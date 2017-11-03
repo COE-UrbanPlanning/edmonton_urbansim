@@ -33,13 +33,13 @@ def map_query(table, filter, groupby, field, agg):
     df = DFRAMES[table]
 
     if field not in df.columns:
-        print "Col not found, trying eval:", field
+        print("Col not found, trying eval:", field)
         df["eval"] = df.eval(field)
         field = "eval"
 
     cmd = "df%s.groupby('%s')['%s'].%s" % \
           (filter, groupby, field, agg)
-    print cmd
+    print(cmd)
     results = eval(cmd)
     results[results == np.inf] = np.nan
     results = yamlio.series_to_yaml_safe(results.dropna())
@@ -60,9 +60,9 @@ def index():
     return Environment().from_string(index).render(CONFIG)
 
 
-@route('/data/<filename>')
+@route('/coedata/<filename>')
 def data_static(filename):
-    return static_file(filename, root='./data')
+    return static_file(filename, root='./coedata')
 
 
 @route('/runs/<filename>')
@@ -73,7 +73,7 @@ def runs_static(filename):
 def start(views,
           center=[37.7792, -122.2191],
           zoom=11,
-          shape_json='data/zones.json',
+          shape_json='coedata/zones.json',
           geom_name='ZONE_ID',  # from JSON file
           join_name='zone_id',  # from data frames
           precision=8,

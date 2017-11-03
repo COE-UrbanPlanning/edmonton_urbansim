@@ -4,7 +4,7 @@ import orca
 import pandas as pd
 from pandas.util import testing as pdt
 import numpy as np
-from utils import random_indexes, round_series_match_target,\
+from .utils import random_indexes, round_series_match_target,\
     scale_by_target, simple_ipf
 from urbansim.utils import misc
 from scripts.output_csv_utils import format_df
@@ -13,7 +13,7 @@ from scripts.output_csv_utils import format_df
 @orca.step()
 def topsheet(households, jobs, buildings, parcels, zones, year,
              run_number, taz_geography, parcels_zoning_calculations,
-             summary, settings, parcels_geography, abag_targets, new_tpp_id,
+             summary, settings, parcels_geography, coe_targets, new_tpp_id,
              residential_units):
 
     hh_by_subregion = misc.reindex(taz_geography.subregion,
@@ -219,7 +219,7 @@ def topsheet(households, jobs, buildings, parcels, zones, year,
     write("Jobs/housing balance:\n" + str(jobs_by_housing))
 
     for geo, typ, corr in compare_to_targets(parcels, buildings, jobs,
-                                             households, abag_targets,
+                                             households, coe_targets,
                                              write_comparison_dfs=True):
         write("{} in {} have correlation of {:,.4f} with targets".format(
             typ, geo, corr
@@ -228,16 +228,16 @@ def topsheet(households, jobs, buildings, parcels, zones, year,
     f.close()
 
 
-def compare_to_targets(parcels, buildings, jobs, households, abag_targets,
+def compare_to_targets(parcels, buildings, jobs, households, coe_targets,
                        write_comparison_dfs=False):
 
     # yes a similar join is used in the summarize step below - but it's
     # better to keep it clean and separate
 
-    abag_targets = abag_targets.to_frame()
-    abag_targets["pda_fill_juris"] = abag_targets["joinkey"].\
+    coe_targets = coe_targets.to_frame()
+    coe_targets["pda_fill_juris"] = coe_targets["joinkey"].astype(str).\
         replace("Non-PDA", np.nan).replace("Total", np.nan).\
-        str.upper().fillna(abag_targets.juris)
+        str.upper().fillna(coe_targets.juris)
 
     households_df = orca.merge_tables(
         'households',
@@ -265,7 +265,7 @@ def compare_to_targets(parcels, buildings, jobs, households, abag_targets,
 
         for typ in ['households', 'jobs']:
 
-            abag_distribution = abag_targets.groupby(geo)[typ].sum()
+            abag_distribution = coe_targets.groupby(geo)[typ].sum()
 
             df["abag_"+geo+"_"+typ] = abag_distribution
 
@@ -370,7 +370,7 @@ def diagnostic_output(households, buildings, parcels, taz, jobs, settings,
     # save the dropped buildings to a csv
     if "dropped_buildings" in orca.orca._TABLES:
         df = orca.get_table("dropped_buildings").to_frame()
-        print "Dropped buildings", df.describe()
+        print("Dropped buildings", df.describe())
         df.to_csv(
             "runs/run{}_dropped_buildings.csv".format(run_number)
         )
@@ -518,8 +518,9 @@ def geographic_summary(parcels, households, jobs, buildings, taz_geography,
                     summary_table.inclusionary_revenue_reduction / \
                     summary_table.inclusionary_units
                 summary_table['total_subsidy'] = \
-                    parcel_output[parcel_output.subsidized_units > 0].\
-                    groupby(geography).max_profit.sum() * -1
+                    (parcel_output[parcel_output.subsidized_units > 0].\
+                    groupby(geography).max_profit.sum() * -1) \
+                    if 'max_profit' in parcel_output.columns else 0
                 summary_table['subsidy_per_unit'] = \
                     summary_table.total_subsidy / \
                     summary_table.subsidized_units
@@ -529,13 +530,13 @@ def geographic_summary(parcels, households, jobs, buildings, taz_geography,
                     format(run_number, geography, year)
             elif base is True:
                 summary_csv = "runs/run{}_{}_summaries_{}.csv".\
-                    format(run_number, geography, 2009)
+                    format(run_number, geography, 2010)
             summary_table.to_csv(summary_csv)
 
     if year == final_year:
 
         # Write Summary of Accounts
-        for acct_name, acct in orca.get_injectable("coffer").iteritems():
+        for acct_name, acct in orca.get_injectable("coffer").items():
             fname = "runs/run{}_acctlog_{}_{}.csv".\
                 format(run_number, acct_name, year)
             acct.to_frame().to_csv(fname)
@@ -558,6 +559,7 @@ def geographic_summary(parcels, households, jobs, buildings, taz_geography,
         df = buildings_uf_df.\
             loc[buildings_uf_df['year_built'] > 2010].\
             groupby('urban_footprint').sum()
+        
         df = df[['count', 'residential_units', 'non_residential_sqft',
                  'acres']]
 
@@ -579,11 +581,14 @@ def geographic_summary(parcels, households, jobs, buildings, taz_geography,
         df = df.transpose()
 
         df2 = df2.transpose()
+        
+# leave here for now, coz there is no difference between denser_greenfield and
+# urban_footprint,will work on this in future when needed 2017-08-15 Rongxu
 
-        df[2] = df2[1]
-
-        df.columns = ['urban_footprint_0', 'urban_footprint_1',
-                      'denser_greenfield']
+#        df[2] = df2[1]
+#
+#        df.columns = ['urban_footprint_0', 'urban_footprint_1',
+#                      'denser_greenfield']
         uf_summary_csv = "runs/run{}_urban_footprint_summary_{}.csv".\
             format(run_number, year)
         df.to_csv(uf_summary_csv)
@@ -666,7 +671,7 @@ def parcel_summary(parcels, buildings, households, jobs,
 
         df2 = pd.read_csv(
             os.path.join("runs", "run%d_parcel_data_%d.csv" %
-                         (run_number, initial_year)), index_col="parcel_id")
+                         (run_number, initial_year)), index_col="PARCEL_ID")
 
         for col in df.columns:
 
@@ -696,6 +701,7 @@ def travel_model_output(parcels, households, jobs, buildings,
     taz_df["sd"] = taz_geography.superdistrict
     taz_df["zone"] = zones.index
     taz_df["county"] = taz_geography.county
+#    taz_df["geometry"] = zones.geometry
 
     jobs_df = orca.merge_tables(
         'jobs',
@@ -788,12 +794,13 @@ def travel_model_output(parcels, households, jobs, buildings,
     taz_df = add_population(taz_df, year)
     taz_df = add_employment(taz_df, year)
     taz_df = add_age_categories(taz_df, year)
+    
 
     summary.add_zone_output(taz_df, "travel_model_output", year)
     if "geometry" in summary.zone_output.columns:
         summary.write_zone_output(store)
     else:
-        print "Warning: No output json written because no geometry attribute present"
+        print("Warning: No output json written because no geometry attribute present")
 
     # otherwise it loses precision
     if summary.parcel_output is not None\
@@ -807,10 +814,11 @@ def travel_model_output(parcels, households, jobs, buildings,
         "x_col": "x",
         "y_col": "y"
     })
+            
 
     # uppercase columns to match travel model template
-    taz_df.columns = \
-        [x.upper() for x in taz_df.columns]
+#    taz_df.columns = \
+#        [x.upper() for x in taz_df.columns]
 
     taz_df.fillna(0).to_csv(
         "runs/run{}_taz_summaries_{}.csv".format(run_number, year))
@@ -835,12 +843,12 @@ def scaled_resacre(mtcr, us_outr):
 
 
 def zone_forecast_inputs():
-    return pd.read_csv(os.path.join('myData', 'zone_forecast_inputs_copy.csv'),
+    return pd.read_csv(os.path.join('coedata', 'zone_forecast_inputs.csv'),
                        index_col="zone_id")
 
 
 def regional_controls():
-    return pd.read_csv(os.path.join('myData', 'regional_controls.csv'),
+    return pd.read_csv(os.path.join('coedata', 'regional_controls.csv'),
                        index_col="year")
 
 
@@ -907,7 +915,6 @@ def add_age_categories(df, year):
     seed_matrix = zfi[["sh_age0004", "sh_age0519", "sh_age2044",
                        "sh_age4564", "sh_age65p"]].\
         mul(df[df.index.isin(zfi.index)].totpop, axis='index').as_matrix()
-
     row_marginals = df.totpop.values
     agecols = ["age0004", "age0519", "age2044", "age4564", "age65p"]
     col_marginals = rc[agecols].loc[year].values
@@ -918,6 +925,10 @@ def add_age_categories(df, year):
 
     seed_matrix[seed_matrix == 0] = .1
     seed_matrix[row_marginals == 0, :] = 0
+    
+    # Added by Derek to make sure the seed_matrix is a matrix, rather than a
+    # ndarray, which caused problems in simple_ipf
+    seed_matrix = pd.DataFrame(seed_matrix)
     
     mat = simple_ipf(seed_matrix, col_marginals, row_marginals)
     agedf = pd.DataFrame(mat)

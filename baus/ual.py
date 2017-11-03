@@ -10,6 +10,7 @@ from urbansim.developer.developer import Developer as dev
 from urbansim.models.relocation import RelocationModel
 from urbansim.utils import misc
 from urbansim_defaults import utils
+from .datasources import DATA_DIR
 
 
 ###############################################################################
@@ -39,6 +40,12 @@ def _create_empty_units(buildings):
     """
     # The '.astype(int)' deals with a bug (?) where the developer model creates
     # floating-point unit counts
+    
+    s = buildings.residential_units.fillna(0) >=\
+        buildings.deed_restricted_units.fillna(0)
+
+    assert np.all(buildings.residential_units.fillna(0) >=
+                  buildings.deed_restricted_units.fillna(0))
 
     df = pd.DataFrame({
         'unit_residential_price': 0.0,
@@ -113,11 +120,9 @@ def match_households_to_units(households, residential_units):
     indexes = [tuple(t) for t in
                hh.loc[placed, ['building_id', 'unit_num']].values]
 
-    # The fillna is added to make assign_tenure_to_units work. Might break things
-    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.fillna(-1).values
-#    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.values
+    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.values
     hh.loc[unplaced, 'unit_id'] = -1
-
+          
     return hh
 
 
@@ -153,10 +158,10 @@ def assign_tenure_to_units(residential_units, households):
     rent = hh[(hh.tenure == 'rent') & (hh.unit_id != -1)].unit_id.values
     units.loc[own, 'tenure'] = 'own'
     units.loc[rent, 'tenure'] = 'rent'
-    print "Init unit tenure assignment: %d%% owner occupied, %d%% unfilled" % \
+    print("Init unit tenure assignment: %d%% owner occupied, %d%% unfilled" % \
         (round(len(units[units.tenure.astype(str) == 'own'])*100 /
          len(units[units.tenure.notnull()])) if len(units[units.tenure.notnull()]) != 0 else 0,
-         round(len(units[units.tenure.isnull()])*100 / len(units)))
+         round(len(units[units.tenure.isnull()])*100 / len(units))))
 
     # Fill remaining units with random tenure assignment
     # TO DO: Make this weighted by existing allocation, rather than 50/50
@@ -204,7 +209,7 @@ def load_rental_listings():
     - injectable 'net' that can provide 'node_id' and 'tmnode_id' from
       lat-lon coordinates
     - some way to get 'zone_id' (currently using parcels table)
-    - 'sfbay_craigslist.csv' file
+    - 'coe_kijiji.csv' file
 
     Results
     -------
@@ -221,7 +226,7 @@ def load_rental_listings():
     """
     @orca.table('craigslist', cache=True)
     def craigslist():
-        df = pd.read_csv(os.path.join(misc.data_dir(), "sfbay_craigslist.csv"))
+        df = pd.read_csv(os.path.join(DATA_DIR, "coe_kijiji.csv"))
         net = orca.get_injectable('net')
         df['node_id'] = net['walk'].get_node_ids(df['lon'], df['lat'])
         df['tmnode_id'] = net['drive'].get_node_ids(df['lon'], df['lat'])
@@ -264,7 +269,7 @@ def reconcile_placed_households(households, residential_units):
     Data expectations
     -----------------
     - 'households' table has the following columns:
-        - index 'household_id'
+        - index 'hhd_id'= "household_id"
         - 'unit_id' (int, '-1'-filled)
         - 'building_id' (int, '-1'-filled)
     - 'residential_units' table has the following columns:
@@ -293,9 +298,9 @@ def reconcile_placed_households(households, residential_units):
     #                    missing=False))))
 
     hh = households.to_frame(['unit_id', 'building_id'])
-    hh.index.rename('household_id', inplace=True)
+    hh.index.rename('hhd_id', inplace=True)
     hh = hh.reset_index()
-    print "hh columns: %s" % hh.columns
+    print("hh columns: %s" % hh.columns)
 
     # hh.index.name='household_id'
     units = residential_units.to_frame(['building_id']).reset_index()
@@ -307,10 +312,10 @@ def reconcile_placed_households(households, residential_units):
     # from the units table
     hh = hh.drop('building_id', axis=1)
     hh = pd.merge(hh, units, on='unit_id', how='left').\
-        set_index('household_id')
-    print "hh index.names: %s" % hh.index.names
+        set_index('hhd_id')
+    print("hh index.names: %s" % hh.index.names)
 
-    print "%d movers updated" % len(hh)
+    print("%d movers updated" % len(hh))
     households.update_col_from_series('building_id', hh.building_id, cast=True)
 
     # Verify final data characteristics
@@ -360,17 +365,17 @@ def reconcile_unplaced_households(households):
     '''
 
     def _print_status():
-        print "Households not in a unit: %d" % \
-            (households.unit_id == -1).sum()
-        print "Househing missing a unit: %d" % \
-            households.unit_id.isnull().sum()
-        print "Households not in a building: %d" % \
-            (households.building_id == -1).sum()
-        print "Househing missing a building: %d" % \
-            households.building_id.isnull().sum()
+        print("Households not in a unit: %d" % \
+            (households.unit_id == -1).sum())
+        print("Househing missing a unit: %d" % \
+            households.unit_id.isnull().sum())
+        print("Households not in a building: %d" % \
+            (households.building_id == -1).sum())
+        print("Househing missing a building: %d" % \
+            households.building_id.isnull().sum())
 
     _print_status()
-    print "Reconciling unplaced households..."
+    print("Reconciling unplaced households...")
     hh = households.to_frame(['building_id', 'unit_id'])
 
     # Get indexes of households unplaced in buildings or in units
@@ -431,10 +436,10 @@ def remove_old_units(buildings, residential_units):
     units = residential_units.to_frame(residential_units.local_columns)
     current_units = units[units.building_id.isin(buildings.index)]
 
-    print "Removing %d units from %d buildings that no longer exist" % \
+    print("Removing %d units from %d buildings that no longer exist" % \
         ((len(units) - len(current_units)),
          (len(units.groupby('building_id')) -
-          len(current_units.groupby('building_id'))))
+          len(current_units.groupby('building_id')))))
 
     orca.add_table('residential_units', current_units)
 
@@ -491,14 +496,17 @@ def initialize_new_units(buildings, residential_units):
     # the units table
     new_bldgs = bldgs[~bldgs.building_id.isin(old_units.building_id)]
     new_bldgs = new_bldgs[new_bldgs.residential_units > 0]
+    
+    if len(new_bldgs) == 0:
+        return
 
     # Create new units, merge them, and update the table
     new_units = _create_empty_units(new_bldgs)
     all_units = dev.merge(old_units, new_units)
     all_units.index.name = 'unit_id'
 
-    print "Creating %d residential units for %d new buildings" % \
-        (len(new_units), len(new_bldgs))
+    print("Creating %d residential units for %d new buildings" % \
+        (len(new_units), len(new_bldgs)))
 
     orca.add_table('residential_units', all_units)
 
@@ -562,8 +570,8 @@ def assign_tenure_to_new_units(residential_units, settings):
     units.loc[~rental_units, 'tenure'] = 'own'
     units.loc[rental_units, 'tenure'] = 'rent'
 
-    print "Adding tenure assignment to %d new residential units" % len(units)
-    print units.describe()
+    print("Adding tenure assignment to %d new residential units" % len(units))
+    print(units.describe())
 
     residential_units.update_col_from_series(
         'tenure', units.tenure, cast=True)
@@ -586,6 +594,12 @@ def save_intermediate_tables(households, buildings, parcels,
 # (3) UAL ORCA STEPS FOR SIMULATION LOGIC
 #
 ###############################################################################
+
+# Not sure if correct, but defined here to call with the buildings table 
+# instead of the costar table since, at the time, the costar table was empty
+@orca.step('nrh_estimate')
+def nrh_estimate(buildings, aggregations):
+    return utils.hedonic_estimate("nrh.yaml", buildings, aggregations)
 
 
 # have to define this here because urbansim_defaults incorrectly calls the
@@ -624,7 +638,7 @@ def _mtc_clip(table, col_name, settings, price_scale=1):
         low = float(settings["rsh_simulate"]["low"]) * price_scale
         high = float(settings["rsh_simulate"]["high"]) * price_scale
         table.update_col(col_name, table[col_name].clip(low, high))
-        print "Clipping produces\n", table[col_name].describe()
+        print("Clipping produces\n", table[col_name].describe())
 
 
 @orca.step()
@@ -702,9 +716,9 @@ def households_relocation(households, settings):
 
     rates = pd.DataFrame.from_dict(settings['relocation_rates'])
 
-    print "Total agents: %d" % len(households)
-    print "Total currently unplaced: %d" % (households.unit_id == -1).sum()
-    print "Assigning for relocation..."
+    print("Total agents: %d" % len(households))
+    print("Total currently unplaced: %d" % (households.unit_id == -1).sum())
+    print("Assigning for relocation...")
 
     # Initialize model, choose movers, and un-place them from buildings
     # and units
@@ -715,7 +729,7 @@ def households_relocation(households, settings):
     households.update_col_from_series(
         'unit_id', pd.Series(-1, index=mover_ids), cast=True)
 
-    print "Total currently unplaced: %d" % (households.unit_id == -1).sum()
+    print("Total currently unplaced: %d" % (households.unit_id == -1).sum())
     return
 
 
@@ -847,12 +861,12 @@ def balance_rental_and_ownership_hedonics(households, settings,
     owner_utilization = hh_rent_own.own / float(unit_rent_own.own)
     renter_utilization = hh_rent_own.rent / float(unit_rent_own.rent)
 
-    print "Owner utilization = %.3f" % owner_utilization
-    print "Renter utilization = %.3f" % renter_utilization
+    print("Owner utilization = %.3f" % owner_utilization)
+    print("Renter utilization = %.3f" % renter_utilization)
 
     utilization_ratio = renter_utilization / owner_utilization
-    print "Ratio of renter utilization to owner utilization = %.3f" %\
-        utilization_ratio
+    print("Ratio of renter utilization to owner utilization = %.3f" %\
+        utilization_ratio)
 
     if "original_cap_rate" not in settings:
         settings["original_cap_rate"] = settings["cap_rate"]
@@ -863,7 +877,7 @@ def balance_rental_and_ownership_hedonics(households, settings,
         utilization_ratio /= factor
     elif utilization_ratio > 1.0:
         utilization_ratio *= factor
-    print "Modified ratio = %.3f" % utilization_ratio
+    print("Modified ratio = %.3f" % utilization_ratio)
 
     # adjust the cap rate based on utilization ratio - higher ratio
     # here means renter utilization is higher than owner utilization
@@ -872,4 +886,4 @@ def balance_rental_and_ownership_hedonics(households, settings,
     settings["cap_rate"] = settings["original_cap_rate"] /\
         utilization_ratio
 
-    print "New cap rate = %.2f" % settings["cap_rate"]
+    print("New cap rate = %.2f" % settings["cap_rate"])
