@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 
-DATA_DIR = "myData"
+DATA_DIR = "coedata"
 
 
 @orca.step()
@@ -140,7 +140,7 @@ def _proportional_jobs_model(
 
 @orca.step()
 def accessory_units(year, buildings, parcels):
-    add_units = pd.read_csv("myData/accessory_units.csv",
+    add_units = pd.read_csv("coedata/accessory_units.csv",
                             index_col="juris")[str(year)]
     buildings_juris = misc.reindex(parcels.juris, buildings.parcel_id)
     res_buildings = buildings_juris[buildings.general_type == "Residential"]
@@ -355,6 +355,18 @@ def scheduled_development_events(buildings, development_projects,
     del new_buildings["zone_id"]
     new_buildings["pda"] = parcels_geography.pda_id.loc[
         new_buildings.parcel_id].values
+    # Added to make topsheet work. Sketchy though, since only rows added in
+    # this function's summary.add_parcel_output. Other functions that do this
+    # will just have a NaN in this column. Consider changing.
+    if 'total_sqft' not in new_buildings.columns:
+        new_buildings['total_sqft'] = misc.reindex(
+                parcels.total_sqft, new_buildings.PARCEL_ID)
+    if 'superdistrict' not in new_buildings.columns:
+        new_buildings['superdistrict'] = misc.reindex(
+                parcels.superdistrict, new_buildings.PARCEL_ID)
+    if 'juris' not in new_buildings.columns:
+        new_buildings['juris'] = misc.reindex(
+                parcels.juris, new_buildings.PARCEL_ID)
 
     summary.add_parcel_output(new_buildings)
 
@@ -498,7 +510,7 @@ def residential_developer(feasibility, households, buildings, parcels, year,
 
     kwargs = settings['residential_developer']
 
-    target_vacancy = pd.read_csv("myData/regional_controls.csv",
+    target_vacancy = pd.read_csv("coedata/regional_controls.csv",
                                  index_col="year").loc[year].st_res_vac
 
     num_units = dev.compute_units_to_build(
@@ -587,10 +599,21 @@ def residential_developer(feasibility, households, buildings, parcels, year,
                 index = new_buildings.tail(1).index[0]
                 index = int(index)
                 # make sure we don't get into a negative unit situation
-                overshoot = min(overshoot,
-                                buildings.local.loc[index,
-                                                    "residential_units"])
+                current_units = buildings.local.loc[index, "residential_units"]
+                # only can reduce by as many units as we have
+                overshoot = min(overshoot, current_units)
+                # used below - this is the pct we need to reduce the building
+                overshoot_pct = \
+                    (current_units - overshoot) / float(current_units)
+                
                 buildings.local.loc[index, "residential_units"] -= overshoot
+                                   
+                # we also need to fix the other columns so they make sense
+                for col in ["residential_sqft", "building_sqft",
+                            "deed_restricted_units"]:
+                    val = buildings.local.loc[index, col]
+                    # reduce by pct but round to int
+                    buildings.local.loc[index, col] = int(val * overshoot_pct)
 
         summary.add_parcel_output(new_buildings)
 
@@ -673,6 +696,17 @@ def retail_developer(jobs, buildings, parcels, nodes, feasibility,
     if target > 0:
         print "   WARNING: retail target not met"
     devs["form"] = "retail"
+    
+    if 'total_sqft' not in devs.columns:
+        devs['total_sqft'] = misc.reindex(
+                parcels.total_sqft, devs.PARCEL_ID)
+    if 'superdistrict' not in devs.columns:
+        devs['superdistrict'] = misc.reindex(
+                parcels.superdistrict, devs.PARCEL_ID)
+    if 'juris' not in devs.columns:
+        devs['juris'] = misc.reindex(
+                parcels.juris, devs.PARCEL_ID)
+    
     devs = add_extra_columns_func(devs)
 
     add_buildings(buildings, devs)
@@ -811,7 +845,7 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
         # bias selection of places to put job spaces based on res units
         print res_units.describe()
         print res_units[res_units < 0]
-        add_indexes = np.random.choice(res_units.index.values, size=to_add,
+        add_indexes = np.random.choice(res_units.index.values, size=int(to_add),
                                        replace=True,
                                        p=(res_units/res_units.sum()))
         # collect same indexes
@@ -845,6 +879,7 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
 
     new_buildings["residential_units"] = 0
     new_buildings["residential_sqft"] = 0
+    new_buildings["deed_restricted_units"] = 0
     new_buildings["building_sqft"] = new_buildings.nres_sqft
     new_buildings["stories"] = 1
     new_buildings["building_type"] = "RB"
@@ -868,6 +903,17 @@ def developer_reprocess(buildings, year, years_per_iter, jobs,
     new_buildings["job_spaces"] = \
         (new_buildings.nres_sqft / 445.0).astype('int')
     new_buildings["net_units"] = new_buildings.job_spaces
+                 
+    if 'total_sqft' not in new_buildings.columns:
+        new_buildings['total_sqft'] = misc.reindex(
+                parcels.total_sqft, new_buildings.PARCEL_ID)
+    if 'superdistrict' not in new_buildings.columns:
+        new_buildings['superdistrict'] = misc.reindex(
+                parcels.superdistrict, new_buildings.PARCEL_ID)
+    if 'juris' not in new_buildings.columns:
+        new_buildings['juris'] = misc.reindex(
+                parcels.juris, new_buildings.PARCEL_ID)
+                 
     summary.add_parcel_output(new_buildings)
 
     # got to get the frame again because we just added rows
@@ -928,9 +974,45 @@ def static_parcel_proportional_job_allocation(static_parcels):
         proportional_job_allocation(parcel_id)
 
 
-def make_network(name, weight_col, max_distance):
-    st = pd.HDFStore(os.path.join(DATA_DIR, name), "r")
-    nodes, edges = st.nodes, st.edges
+#def make_network(name, weight_col, max_distance):
+#    st = pd.HDFStore(os.path.join(DATA_DIR, name), "r")
+#    nodes, edges = st.nodes, st.edges
+#    net = pdna.Network(nodes["x"], nodes["y"], edges["from"], edges["to"],
+#                       edges[[weight_col]])
+#    net.precompute(max_distance)
+#    return net
+#
+#
+#def make_network_from_settings(settings):
+#    return make_network(
+#        settings["name"],
+#        settings.get("weight_col", "weight"),
+#        settings['max_distance']
+#    )
+#
+#
+#@orca.injectable(cache=True)
+#def net(settings):
+#    nets = {}
+#    pdna.reserve_num_graphs(len(settings["build_networks"]))
+#
+#    # yeah, starting to hardcode stuff, not great, but can only
+#    # do nearest queries on the first graph I initialize due to crummy
+#    # limitation in pandana
+#    for key in settings["build_networks"].keys():
+#        nets[key] = make_network_from_settings(
+#            settings['build_networks'][key]
+#        )
+#
+#    return nets
+
+def make_network(edge_name, node_name, weight_col, max_distance):
+    if edge_name == node_name:
+        st = pd.HDFStore(os.path.join(DATA_DIR, edge_name), "r")
+        nodes, edges = st.nodes, st.edges
+    else:
+        edges = pd.read_csv(os.path.join(DATA_DIR, edge_name))
+        nodes = pd.read_csv(os.path.join(DATA_DIR, node_name), index_col="ID")
     net = pdna.Network(nodes["x"], nodes["y"], edges["from"], edges["to"],
                        edges[[weight_col]])
     net.precompute(max_distance)
@@ -938,14 +1020,23 @@ def make_network(name, weight_col, max_distance):
 
 
 def make_network_from_settings(settings):
-    return make_network(
-        settings["name"],
-        settings.get("weight_col", "weight"),
-        settings['max_distance']
-    )
+    if "name" in settings:
+        return make_network(
+            settings["name"],
+            settings["name"],
+            settings.get("weight_col", "weight"),
+            settings['max_distance']
+        )
+    else:
+        return make_network(
+            settings["edge_name"],
+            settings["node_name"],
+            settings.get("weight_col", "weight"),
+            settings['max_distance']
+        )
 
 
-@orca.injectable(cache=True)
+@orca.injectable('net', cache=True)
 def net(settings):
     nets = {}
     pdna.reserve_num_graphs(len(settings["build_networks"]))
@@ -977,7 +1068,7 @@ def local_pois(settings):
 
     cols = {}
 
-    locations = pd.read_csv(os.path.join(DATA_DIR, 'bart_stations.csv'))
+    locations = pd.read_csv(os.path.join(DATA_DIR, 'LRT_station.csv'))
     n.set_pois("tmp", locations.lng, locations.lat)
     cols["bartdist"] = n.nearest_pois(3000, "tmp", num_pois=1)[1]
 
@@ -1000,6 +1091,16 @@ def neighborhood_vars(net, jobs):
 
     print nodes.describe()
     orca.add_table("nodes", nodes)
+    
+    
+@orca.step()
+def neighborhood_vars_first(store):
+    # Since this is the first time running neighborhood_vars, take from preproc
+    # to save time
+    nodes = store['neighborhood_vars_preproc']
+
+    print nodes.describe()
+    orca.add_table("nodes", nodes)
 
 
 @orca.step()
@@ -1007,9 +1108,19 @@ def regional_vars(net, parcels):
     nodes = networks.from_yaml(net["drive"], "regional_vars.yaml")
     nodes = nodes.fillna(0)
 
-    nodes2 = pd.read_csv('myData/regional_poi_distances.csv',
-                         index_col="tmnode_id")
-    nodes = pd.concat([nodes, nodes2], axis=1)
+#    nodes2 = pd.read_csv('coedata/regional_poi_distances.csv',
+#                         index_col="tmnode_id")
+#    nodes = pd.concat([nodes, nodes2], axis=1)
+
+    print nodes.describe()
+    orca.add_table("tmnodes", nodes)
+    
+
+@orca.step()
+def regional_vars_first(store):
+    # Since this is the first time running regional_vars, take from preproc
+    # to save time
+    nodes = store['regional_vars_preproc']
 
     print nodes.describe()
     orca.add_table("tmnodes", nodes)
@@ -1030,10 +1141,10 @@ def regional_pois(settings, landmarks):
         max_pois=1)
 
     cols = {}
-    for locname in ["embarcadero", "stanford", "pacheights"]:
-        locs = landmarks.local.query("name == '%s'" % locname)
-        n.set_pois("tmp", locs.lng, locs.lat)
-        cols[locname] = n.nearest_pois(75, "tmp", num_pois=1)[1]
+#    for locname in ["embarcadero", "stanford", "pacheights"]:
+#        locs = landmarks.local.query("name == '%s'" % locname)
+#        n.set_pois("tmp", locs.lng, locs.lat)
+#        cols[locname] = n.nearest_pois(75, "tmp", num_pois=1)[1]
 
     df = pd.DataFrame(cols)
     print df.describe()

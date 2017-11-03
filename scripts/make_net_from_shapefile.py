@@ -3,7 +3,7 @@
 '''
 import geopandas as gpd
 from fiona.crs import from_epsg
-gdf = gpd.GeoDataFrame.from_file('/home/ubuntu/data/avgload5period.shp')
+gdf = gpd.GeoDataFrame.from_file('/home/ubuntu/coedata/avgload5period.shp')
 gdf.crs = from_epsg(3740)
 gdf = gdf.to_crs(epsg=4326)
 

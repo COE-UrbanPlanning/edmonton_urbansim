@@ -5,9 +5,9 @@ args = sys.argv[1:]
 
 runnum = int(args[0])
 
-controls_df = pd.read_csv("data/employment_controls.csv", index_col="year")
+controls_df = pd.read_csv("coedata/employment_controls.csv", index_col="year")
 
-for year in range(2010, 2045, 5):
+for year in range(2010, 2040, 5):
 
     print year
     taz_df = pd.read_csv("runs/run{}_taz_summaries_{}.csv".

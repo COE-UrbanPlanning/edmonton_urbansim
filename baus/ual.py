@@ -10,6 +10,7 @@ from urbansim.developer.developer import Developer as dev
 from urbansim.models.relocation import RelocationModel
 from urbansim.utils import misc
 from urbansim_defaults import utils
+from datasources import DATA_DIR
 
 
 ###############################################################################
@@ -39,6 +40,12 @@ def _create_empty_units(buildings):
     """
     # The '.astype(int)' deals with a bug (?) where the developer model creates
     # floating-point unit counts
+    
+    s = buildings.residential_units.fillna(0) >=\
+        buildings.deed_restricted_units.fillna(0)
+
+    assert np.all(buildings.residential_units.fillna(0) >=
+                  buildings.deed_restricted_units.fillna(0))
 
     df = pd.DataFrame({
         'unit_residential_price': 0.0,
@@ -113,11 +120,9 @@ def match_households_to_units(households, residential_units):
     indexes = [tuple(t) for t in
                hh.loc[placed, ['building_id', 'unit_num']].values]
 
-    # The fillna is added to make assign_tenure_to_units work. Might break things
-    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.fillna(-1).values
-#    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.values
+    hh.loc[placed, 'unit_id'] = unit_lookup.loc[indexes].unit_id.values
     hh.loc[unplaced, 'unit_id'] = -1
-
+          
     return hh
 
 
@@ -204,7 +209,7 @@ def load_rental_listings():
     - injectable 'net' that can provide 'node_id' and 'tmnode_id' from
       lat-lon coordinates
     - some way to get 'zone_id' (currently using parcels table)
-    - 'sfbay_craigslist.csv' file
+    - 'coe_kijiji.csv' file
 
     Results
     -------
@@ -221,7 +226,7 @@ def load_rental_listings():
     """
     @orca.table('craigslist', cache=True)
     def craigslist():
-        df = pd.read_csv(os.path.join(misc.data_dir(), "sfbay_craigslist.csv"))
+        df = pd.read_csv(os.path.join(DATA_DIR, "coe_kijiji.csv"))
         net = orca.get_injectable('net')
         df['node_id'] = net['walk'].get_node_ids(df['lon'], df['lat'])
         df['tmnode_id'] = net['drive'].get_node_ids(df['lon'], df['lat'])
@@ -264,7 +269,7 @@ def reconcile_placed_households(households, residential_units):
     Data expectations
     -----------------
     - 'households' table has the following columns:
-        - index 'household_id'
+        - index 'hhd_id'= "household_id"
         - 'unit_id' (int, '-1'-filled)
         - 'building_id' (int, '-1'-filled)
     - 'residential_units' table has the following columns:
@@ -293,7 +298,7 @@ def reconcile_placed_households(households, residential_units):
     #                    missing=False))))
 
     hh = households.to_frame(['unit_id', 'building_id'])
-    hh.index.rename('household_id', inplace=True)
+    hh.index.rename('hhd_id', inplace=True)
     hh = hh.reset_index()
     print "hh columns: %s" % hh.columns
 
@@ -307,7 +312,7 @@ def reconcile_placed_households(households, residential_units):
     # from the units table
     hh = hh.drop('building_id', axis=1)
     hh = pd.merge(hh, units, on='unit_id', how='left').\
-        set_index('household_id')
+        set_index('hhd_id')
     print "hh index.names: %s" % hh.index.names
 
     print "%d movers updated" % len(hh)
@@ -491,6 +496,9 @@ def initialize_new_units(buildings, residential_units):
     # the units table
     new_bldgs = bldgs[~bldgs.building_id.isin(old_units.building_id)]
     new_bldgs = new_bldgs[new_bldgs.residential_units > 0]
+    
+    if len(new_bldgs) == 0:
+        return
 
     # Create new units, merge them, and update the table
     new_units = _create_empty_units(new_bldgs)
@@ -586,6 +594,12 @@ def save_intermediate_tables(households, buildings, parcels,
 # (3) UAL ORCA STEPS FOR SIMULATION LOGIC
 #
 ###############################################################################
+
+# Not sure if correct, but defined here to call with the buildings table 
+# instead of the costar table since, at the time, the costar table was empty
+@orca.step('nrh_estimate')
+def nrh_estimate(buildings, aggregations):
+    return utils.hedonic_estimate("nrh.yaml", buildings, aggregations)
 
 
 # have to define this here because urbansim_defaults incorrectly calls the

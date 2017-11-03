@@ -7,7 +7,7 @@ import itertools
 import random
 
 # this first part is the city level controls from abag
-targets = pd.read_csv("data/juris_controls.csv",
+targets = pd.read_csv("coedata/juris_controls.csv",
                       index_col="Jurisdiction").Households
 
 print "Sum of cities", targets.sum()
@@ -83,7 +83,7 @@ print len(building_destinations)
 
 # putting the unplaced in advantageous positions
 s = pd.Series(building_destinations, index=movers)
-s.index.name = "household_id"
+s.index.name = "hhd_id"
 
 pd.DataFrame({"building_id": s}).\
     to_csv("household_building_id_overrides.csv")

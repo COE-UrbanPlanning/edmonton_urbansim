@@ -1,5 +1,6 @@
 import os
 import sys
+
 import time
 import traceback
 from baus import models
@@ -29,7 +30,7 @@ CURRENT_COMMIT = os.popen('git rev-parse HEAD').read()
 COMPARE_TO_NO_PROJECT = True
 NO_PROJECT = 611
 
-IN_YEAR, OUT_YEAR = 2010, 2016
+IN_YEAR, OUT_YEAR = 2010, 2040
 COMPARE_AGAINST_LAST_KNOWN_GOOD = False
 
 LAST_KNOWN_GOOD_RUNS = {
@@ -140,7 +141,7 @@ def get_simulation_models(SCENARIO):
         "lump_sum_accounts",
         "subsidized_residential_developer_lump_sum_accts",
 
-        "alt_feasibility",
+        "alt_feasibility", 
 
         "residential_developer",
         "developer_reprocess",
@@ -220,15 +221,17 @@ def get_simulation_models(SCENARIO):
 def run_models(MODE, SCENARIO):
 
     if MODE == "preprocessing":
-        os.system('del myData\\2015_09_01_bayarea_v3.h5')
-        os.system('copy myData\\2015_09_01_bayarea_v3_empty.h5 myData\\2015_09_01_bayarea_v3.h5')
+        os.system('move /y coedata\\2017_01_01_edmonton_v3.h5 coedata\\2017_01_01_edmonton_v3_backup.h5')
+        os.system('copy /y coedata\\2017_01_01_edmonton_v3_empty.h5 coedata\\2017_01_01_edmonton_v3.h5')
 
         orca.run([
             "preproc_jobs",
             "preproc_households",
             "preproc_buildings_start",
             "initialize_residential_units",
-            "preproc_buildings_finish"
+            "preproc_buildings_finish",
+            "neighborhood_vars_preproc",
+            "regional_vars_preproc"
         ])
 
     elif MODE == "fetch_data":
@@ -240,13 +243,12 @@ def run_models(MODE, SCENARIO):
         orca.run(["simulation_validation"], [2010])
 
     elif MODE == "simulation":
-
         # see above for docs on this
         if not SKIP_BASE_YEAR:
             orca.run([
 
-                "neighborhood_vars",   # local accessibility vars
-                "regional_vars",       # regional accessibility vars
+                "neighborhood_vars_first",   # local accessibility vars
+                "regional_vars_first",       # regional accessibility vars
 
                 "rsh_simulate",    # residential sales hedonic for units
                 "rrh_simulate",    # residential rental hedonic for units
@@ -288,22 +290,21 @@ def run_models(MODE, SCENARIO):
         years_to_run = range(IN_YEAR+EVERY_NTH_YEAR, OUT_YEAR+1,
                              EVERY_NTH_YEAR)
         models = get_simulation_models(SCENARIO)
-        print models
-        print ""
+
         orca.run(models, iter_vars=years_to_run)
 
     elif MODE == "estimation":
-
+        
         orca.run([
 
-            "neighborhood_vars",         # local accessibility variables
-            "regional_vars",             # regional accessibility variables
+            "neighborhood_vars_first",         # local accessibility variables
+            "regional_vars_first",             # regional accessibility variables
             "rsh_estimate",              # residential sales hedonic
             "nrh_estimate",              # non-res rent hedonic
             "rsh_simulate",
             "nrh_simulate",
-            "hlcm_estimate",             # household lcm
-            "elcm_estimate",             # employment lcm
+            "hlcm_estimate",             # household lcm location choice
+            "elcm_estimate",             # employment lcm location choice
 
         ], iter_vars=[2010])
 
@@ -325,8 +326,8 @@ def run_models(MODE, SCENARIO):
 
         orca.run([
 
-            "neighborhood_vars",            # local accessibility vars
-            "regional_vars",                # regional accessibility vars
+            "neighborhood_vars_first",            # local accessibility vars
+            "regional_vars_first",                # regional accessibility vars
 
             "rsh_simulate",                 # residential sales hedonic
             "nrh_simulate",                 # non-residential rent hedonic
@@ -384,65 +385,65 @@ if MAPS:
         write_static_file='/var/www/html/sim_explorer%d.html' % run_num
     )
 
-if SLACK:
-    slack.chat.post_message(
-        '#sim_updates',
-        'Completed simulation %d on host %s' % (run_num, host), as_user=True)
-
-    slack.chat.post_message(
-        '#sim_updates',
-        'UrbanSim explorer is available at ' +
-        'http://urbanforecast.com/sim_explorer%d.html' % run_num, as_user=True)
-
-    slack.chat.post_message(
-        '#sim_updates',
-        'Final topsheet is available at ' +
-        'http://urbanforecast.com/runs/run%d_topsheet_2040.log' % run_num,
-        as_user=True)
-
-    slack.chat.post_message(
-        '#sim_updates',
-        'Targets comparison is available at ' +
-        'http://urbanforecast.com/runs/run%d_targets_comparison_2040.csv' %
-        run_num, as_user=True)
-
-
-summary = ""
-if MODE == "simulation" and COMPARE_AGAINST_LAST_KNOWN_GOOD:
-    # compute and write the difference report at the superdistrict level
-    prev_run = LAST_KNOWN_GOOD_RUNS[SCENARIO]
-    # fetch the previous run off of the internet for comparison - the "last
-    # known good run" should always be available on EC2
-    df1 = pd.read_csv(("http://urbanforecast.com/runs/run%d_superdistrict" +
-                       "_summaries_2040.csv") % prev_run)
-    df1 = df1.set_index(df1.columns[0]).sort_index()
-
-    df2 = pd.read_csv("runs/run%d_superdistrict_summaries_2040.csv" % run_num)
-    df2 = df2.set_index(df2.columns[0]).sort_index()
-
-    supnames = \
-        pd.read_csv("data/superdistricts.csv", index_col="number").name
-
-    summary = compare_summary(df1, df2, supnames)
-    with open("runs/run%d_difference_report.log" % run_num, "w") as f:
-        f.write(summary)
+#if SLACK:
+#    slack.chat.post_message(
+#        '#sim_updates',
+#        'Completed simulation %d on host %s' % (run_num, host), as_user=True)
+#
+#    slack.chat.post_message(
+#        '#sim_updates',
+#        'UrbanSim explorer is available at ' +
+#        'http://urbanforecast.com/sim_explorer%d.html' % run_num, as_user=True)
+#
+#    slack.chat.post_message(
+#        '#sim_updates',
+#        'Final topsheet is available at ' +
+#        'http://urbanforecast.com/runs/run%d_topsheet_2040.log' % run_num,
+#        as_user=True)
+#
+#    slack.chat.post_message(
+#        '#sim_updates',
+#        'Targets comparison is available at ' +
+#        'http://urbanforecast.com/runs/run%d_targets_comparison_2040.csv' %
+#        run_num, as_user=True)
 
 
-if SLACK and MODE == "simulation":
-
-    if len(summary.strip()) != 0:
-        sum_lines = len(summary.strip().split("\n"))
-        slack.chat.post_message(
-            '#sim_updates',
-            ('Difference report is available at ' +
-             'http://urbanforecast.com/runs/run%d_difference_report.log ' +
-             '- %d line(s)') % (run_num, sum_lines),
-            as_user=True)
-    else:
-        slack.chat.post_message(
-            '#sim_updates', "No differences with reference run.", as_user=True)
-
-if S3:
-    os.system('ls runs/run%d_* ' % run_num +
-              '| xargs -I file aws s3 cp file ' +
-              's3://bayarea-urbansim-results')
+#summary = ""
+#if MODE == "simulation" and COMPARE_AGAINST_LAST_KNOWN_GOOD:
+#    # compute and write the difference report at the superdistrict level
+#    prev_run = LAST_KNOWN_GOOD_RUNS[SCENARIO]
+#    # fetch the previous run off of the internet for comparison - the "last
+#    # known good run" should always be available on EC2
+#    df1 = pd.read_csv(("http://urbanforecast.com/runs/run%d_superdistrict" +
+#                       "_summaries_2040.csv") % prev_run)
+#    df1 = df1.set_index(df1.columns[0]).sort_index()
+#
+#    df2 = pd.read_csv("runs/run%d_superdistrict_summaries_2040.csv" % run_num)
+#    df2 = df2.set_index(df2.columns[0]).sort_index()
+#
+#    supnames = \
+#        pd.read_csv("coedata/superdistricts.csv", index_col="number").name
+#
+#    summary = compare_summary(df1, df2, supnames)
+#    with open("runs/run%d_difference_report.log" % run_num, "w") as f:
+#        f.write(summary)
+#
+#
+#if SLACK and MODE == "simulation":
+#
+#    if len(summary.strip()) != 0:
+#        sum_lines = len(summary.strip().split("\n"))
+#        slack.chat.post_message(
+#            '#sim_updates',
+#            ('Difference report is available at ' +
+#             'http://urbanforecast.com/runs/run%d_difference_report.log ' +
+#             '- %d line(s)') % (run_num, sum_lines),
+#            as_user=True)
+#    else:
+#        slack.chat.post_message(
+#            '#sim_updates', "No differences with reference run.", as_user=True)
+#
+#if S3:
+#    os.system('ls runs/run%d_* ' % run_num +
+#              '| xargs -I file aws s3 cp file ' +
+#              's3://bayarea-urbansim-results')

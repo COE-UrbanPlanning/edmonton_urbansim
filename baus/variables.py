@@ -82,9 +82,9 @@ def tmnode_id(jobs, buildings):
     return misc.reindex(buildings.tmnode_id, jobs.building_id)
 
 
-@orca.column('jobs', cache=True)
-def naics(jobs):
-    return jobs.sector_id
+#@orca.column('jobs', cache=True)
+#def naics(jobs):
+#    return jobs.sector_id
 
 
 @orca.column('jobs', cache=True)
@@ -128,6 +128,11 @@ def vacant_units(residential_units, households):
 
 
 @orca.column('buildings', cache=True)
+def APN(buildings, parcels):
+    return misc.reindex(parcels.APN, buildings.PARCEL_ID)
+
+
+@orca.column('buildings', cache=True)
 def general_type(buildings, building_type_map):
     return buildings.bldgt_id.map(building_type_map)
 
@@ -144,16 +149,16 @@ def job_spaces(buildings):
 
 @orca.column('buildings')
 def vacant_job_spaces(buildings, jobs):
-    s = jobs.building_id[jobs.building_id != -1]
+    col = jobs.building_id[jobs.building_id != -1]
     return buildings.job_spaces.sub(
-        s.value_counts(), fill_value=0).astype('int')
+        col.value_counts(), fill_value=0).astype('int')
 
 
 @orca.column('buildings')
 def vacant_res_units(buildings, households):
-    s = households.building_id[households.building_id != -1]
+    col = households.building_id[households.building_id != -1]
     return buildings.res_units.fillna(0).sub(
-        s.value_counts(), fill_value=0).astype('int')
+        col.value_counts(), fill_value=0).astype('int')
 
 
 @orca.column('buildings', cache=True)
@@ -176,16 +181,16 @@ def sqft_per_job(buildings, building_sqft_per_job, superdistricts,
 
 @orca.column('buildings', cache=True)
 def building_age(buildings, year):
-    return (year or 2014) - buildings.year_built
+    return (year or 2010) - buildings.year_built
 
 
 @orca.column('buildings')
 def price_per_sqft(buildings):
-    s = buildings.sale_price / buildings.sqft_per_unit
+    col = buildings.sale_price / buildings.sqft_per_unit
     # not a huge fan of this.  it's an error to have nas in rsh_estimate even
     # though nas will be filtered out by the hedonic - error should happen
     # after filters are applied
-    return s.reindex(buildings.index).fillna(-1)
+    return col.reindex(buildings.index).fillna(-1)
 
 
 @orca.column('buildings', cache=True)
@@ -196,7 +201,7 @@ def transit_type(buildings, parcels_geography):
 
 @orca.column('buildings')
 def unit_price(buildings):
-    return buildings.residential_price * buildings.sqft_per_unit
+    return (buildings.residential_price * buildings.sqft_per_unit).fillna(-1)
 
 
 @orca.column('buildings', cache=True)
@@ -216,6 +221,7 @@ def is_sanfran(parcels, buildings):
 
 @orca.column('buildings', cache=True)
 def sqft_per_unit(buildings):
+#    return buildings.sqft_unit
     return (buildings.bldg_sqft /
             buildings.res_units.replace(0, 1)).clip(400, 6000)
 
@@ -349,7 +355,7 @@ def non_residential_rent(buildings):
 
 @orca.column('buildings', cache=True)
 def building_id(buildings):
-    return buildings.bldg_id
+    return buildings.index
 
 
 #####################
@@ -431,26 +437,26 @@ def vmt_com_fees(parcels, settings):
 # (since feees are specified spatially)
 @orca.column('parcels', cache=True)
 def fees_per_unit(parcels, settings, scenario):
-    s = pd.Series(0, index=parcels.index)
+    col = pd.Series(0, index=parcels.index)
 
     vmt_settings = settings["acct_settings"]["vmt_settings"]
     if scenario in vmt_settings["com_for_res_scenarios"] or \
             scenario in vmt_settings["res_for_res_scenarios"]:
-        s += parcels.vmt_res_fees
+        col += parcels.vmt_res_fees
 
-    return s
+    return col
 
 
 # since this is by sqft this implies commercial
 @orca.column('parcels', cache=True)
 def fees_per_sqft(parcels, settings, scenario):
-    s = pd.Series(0, index=parcels.index)
+    col = pd.Series(0, index=parcels.index)
 
     vmt_settings = settings["acct_settings"]["vmt_settings"]
     if scenario in vmt_settings["com_for_com_scenarios"]:
-        s += parcels.vmt_com_fees
+        col += parcels.vmt_com_fees
 
-    return s
+    return col
 
 
 @orca.column('parcels', cache=True)
@@ -482,11 +488,11 @@ def juris(parcels, parcels_geography):
 
 @orca.column('parcels', cache=True)
 def ave_sqft_per_unit(parcels, zones, settings):
-    s = misc.reindex(zones.ave_unit_sqft, parcels.zone_id)
+    col = misc.reindex(zones.ave_unit_sqft, parcels.zone_id)
 
     clip = settings.get("ave_sqft_per_unit_clip", None)
     if clip is not None:
-        s = s.clip(lower=clip['lower'], upper=clip['upper'])
+        col = col.clip(lower=clip['lower'], upper=clip['upper'])
 
     '''
     This is a fun feature that lets you set max dua for new contruction based
@@ -504,9 +510,9 @@ def ave_sqft_per_unit(parcels, zones, settings):
     cfg = settings.get("clip_sqft_per_unit_based_on_dua", None)
     if cfg is not None:
         for clip in cfg:
-            s[parcels.max_dua >= clip["threshold"]] = clip["max"]
+            col[parcels.max_dua >= clip["threshold"]] = clip["max"]
 
-    return s
+    return col
 
 
 # these are actually functions that take parameters,
@@ -529,16 +535,16 @@ def parcel_average_price(use, quantile=.5):
     
     if use == "residential":
         # get node price average and put it on parcels
-        s = misc.reindex(orca.get_table('nodes')[use],
+        col = misc.reindex(orca.get_table('nodes')[use],
                          orca.get_table('parcels').node_id)
 
         # apply shifters
         cost_shifters = orca.get_table("parcels").cost_shifters
         price_shifters = orca.get_table("parcels").price_shifters
-        s = s / cost_shifters * price_shifters
+        col = col / cost_shifters * price_shifters
 
         # just to make sure we're in a reasonable range
-        return s.fillna(0).clip(150, 1250)
+        return col.fillna(0).clip(150, 1250)
 
     return misc.reindex(orca.get_table('nodes')[use],
                         orca.get_table('parcels').node_id)
@@ -643,12 +649,12 @@ def juris_ave_income(households, buildings, parcels_geography, parcels):
                           columns=["jurisdiction_id", "income"])
     
     # get median income by jurisdiction
-    s = h.groupby(h.jurisdiction_id).income.quantile(.5)
+    col = h.groupby(h.jurisdiction_id).income.quantile(.5)
     # map it to parcels - fill na with median for all areas
     # should probably remove the log transform and do that in the models
     # In case median is NaN, replace NaNs with 0 for now
-    return misc.reindex(s, parcels_geography.jurisdiction_id).\
-        reindex(parcels.index).fillna(s.median()).apply(np.log1p).fillna(0)
+    return misc.reindex(col, parcels_geography.jurisdiction_id).\
+        reindex(parcels.index).fillna(col.median()).apply(np.log1p).fillna(0)
 
 
 # returns the newest building on the land and fills
@@ -669,9 +675,9 @@ def manual_nodev(parcel_rejections, parcels):
     df2 = df2[["lng", "lat"]]  # need to change the order
     ind = nearest_neighbor(df1, df2)
 
-    s = pd.Series(False, parcels.index)
-    s.loc[ind.flatten()] = True
-    return s.astype('int')
+    col = pd.Series(False, parcels.index)
+    col.loc[ind.flatten()] = True
+    return col.astype('int')
 
 
 @orca.column('parcels')
@@ -690,11 +696,11 @@ def is_sanfran(parcels_geography, buildings, parcels):
 def parcel_rules(parcels):
     # removes parcels with buildings < 1940,
     # and single family homes on less then half an acre
-    s = (parcels.oldest_building < 1940) | \
+    col = (parcels.oldest_building < 1940) | \
         ((parcels.total_residential_units == 1) &
          (parcels.parcel_acres < .5)) | \
         (parcels.parcel_size < 2000)
-    return (~s.reindex(parcels.index).fillna(False)).astype('int')
+    return (~col.reindex(parcels.index).fillna(False)).astype('int')
 
 
 @orca.column('parcels', cache=True)
@@ -706,84 +712,84 @@ def total_non_residential_sqft(parcels, buildings):
 @orca.column('parcels')
 def nodev(zoning_baseline, parcels, static_parcels):
     # nodev from zoning
-    s1 = zoning_baseline.nodev.reindex(parcels.index).\
+    col1 = zoning_baseline.nodev.reindex(parcels.index).\
         fillna(0).astype('bool')
     # nodev from static parcels - this marks nodev those parcels which are
     # marked as "static" - any parcels which should not be considered by the
     # developer model may be marked as static
-    s2 = parcels.index.isin(static_parcels)
-    return s1 | s2
+    col2 = parcels.index.isin(static_parcels)
+    return col1 | col2
 
 
 # get built far but set to nan for small parcels
 @orca.column('parcels')
 def built_far(parcels):
     # compute the actually built farn on a parcel
-    s = parcels.total_sqft / parcels.parcel_size
+    col = parcels.total_sqft / parcels.parcel_size
     # if the parcel size is too small to get an accurate reading, remove it
-    s[parcels.parcel_acres < .1] = np.nan
-    return s
+    col[parcels.parcel_acres < .1] = np.nan
+    return col
 
 
 # actual columns start here
 @orca.column('parcels')
 def max_far(parcels_zoning_calculations, parcels, scenario, settings):
     # first we combine the zoning columns
-    s = parcels_zoning_calculations.effective_max_far * ~parcels.nodev
+    col = parcels_zoning_calculations.effective_max_far * ~parcels.nodev
 
     if scenario != "1":
         # we had trouble with the zoning outside of the footprint
         # make sure we have rural zoning outside of the footprint
-        s2 = parcels.urban_footprint.map({0: 0, 1: np.nan})
-        s = pd.concat([s, s2], axis=1).min(axis=1)
+        col2 = parcels.urban_footprint.map({0: 0, 1: np.nan})
+        col = pd.concat([col, col2], axis=1).min(axis=1)
 
     if settings["dont_build_most_dense_building"]:
         # in this case we shrink the zoning such that we don't built the
         # tallest building in a given zone
         # if there no building in the zone currently, we make the max_far = .2
-        s2 = parcels.built_far.groupby(parcels.zone_id).max()
-        s2 = misc.reindex(s2, parcels.zone_id).fillna(.2)
-        s = pd.concat([s, s2], axis=1).min(axis=1)
+        col2 = parcels.built_far.groupby(parcels.zone_id).max()
+        col2 = misc.reindex(col2, parcels.zone_id).fillna(.2)
+        col = pd.concat([col, col2], axis=1).min(axis=1)
 
-    return s
+    return col
 
 
 # compute built dua and set to nan if small parcels
 @orca.column('parcels')
 def built_dua(parcels):
     # compute the actually built dua on a parcel
-    s = parcels.total_residential_units / parcels.parcel_acres
+    col = parcels.total_residential_units / parcels.parcel_acres
     # if the parcel size is too small to get an accurate reading, remove it
-    s[parcels.parcel_acres < .1] = np.nan
-    return s
+    col[parcels.parcel_acres < .1] = np.nan
+    return col
 
 
 @orca.column('parcels')
 def max_dua(parcels_zoning_calculations, parcels, scenario, settings):
     # first we combine the zoning columns
-    s = parcels_zoning_calculations.effective_max_dua * ~parcels.nodev
+    col = parcels_zoning_calculations.effective_max_dua * ~parcels.nodev
 
     if scenario != ["1"]:
         # we had trouble with the zoning outside of the footprint
         # make sure we have rural zoning outside of the footprint
-        s2 = parcels.urban_footprint.map({0: .01, 1: np.nan})
-        s = pd.concat([s, s2], axis=1).min(axis=1)
+        col2 = parcels.urban_footprint.map({0: .01, 1: np.nan})
+        col = pd.concat([col, col2], axis=1).min(axis=1)
 
     if settings["dont_build_most_dense_building"]:
         # in this case we shrink the zoning such that we don't built the
         # tallest building in a given zone
         # if there no building in the zone currently, we make the max_dua = 4
-        s2 = parcels.built_dua.groupby(parcels.zone_id).max()
-        s2 = misc.reindex(s2, parcels.zone_id).fillna(4)
-        s = pd.concat([s, s2], axis=1).min(axis=1)
+        col2 = parcels.built_dua.groupby(parcels.zone_id).max()
+        col2 = misc.reindex(col2, parcels.zone_id).fillna(4)
+        col = pd.concat([col, col2], axis=1).min(axis=1)
 
-    return s
+    return col
 
 
 @orca.column('parcels')
 def general_type(parcels, buildings):
-    s = buildings.general_type.groupby(buildings.PARCEL_ID).first()
-    return s.reindex(parcels.index).fillna("Vacant")
+    col = buildings.general_type.groupby(buildings.PARCEL_ID).first()
+    return col.reindex(parcels.index).fillna("Vacant")
 
 
 # for debugging reasons this is split out into its own function
@@ -831,11 +837,11 @@ def land_cost(parcels):
     # land which can be developer more fully would be more valuable.
     # generally this is not as strong an indicator of valueable land as
     # high prices (see dense zoning in downtown oakland)
-    s = (parcels.building_purchase_price_sqft / 40).clip(5, 20)
+    col = (parcels.building_purchase_price_sqft / 40).clip(5, 20)
     # industrial is an exception as cleanup is likely to be done - would
     # be nice to have data on superfund sites and such
-    s[parcels.general_type == "Industrial"] = 100
-    return parcels.building_purchase_price + parcels.parcel_size * s
+    col[parcels.general_type == "Industrial"] = 100
+    return parcels.building_purchase_price + parcels.parcel_size * col
 
 
 @orca.column('parcels', cache=True)
@@ -855,18 +861,18 @@ def price_shifters(parcels, settings):
 
 @orca.column('parcels', cache=True)
 def node_id(parcels, net):
-    s = net["walk"].get_node_ids(parcels.X, parcels.Y)
-    fill_val = s.value_counts().index[0]
-    s = s.reindex(parcels.index).fillna(fill_val).astype('int')
-    return s
+    col = net["walk"].get_node_ids(parcels.X, parcels.Y)
+    fill_val = col.value_counts().index[0]
+    col = col.reindex(parcels.index).fillna(fill_val).astype('int')
+    return col
 
 
 @orca.column('parcels', cache=True)
 def tmnode_id(parcels, net):
-    s = net["drive"].get_node_ids(parcels.X, parcels.Y)
-    fill_val = s.value_counts().index[0]
-    s = s.reindex(parcels.index).fillna(fill_val).astype('int')
-    return s
+    col = net["drive"].get_node_ids(parcels.X, parcels.Y)
+    fill_val = col.value_counts().index[0]
+    col = col.reindex(parcels.index).fillna(fill_val).astype('int')
+    return col
 
 
 @orca.column('parcels', cache=True)
@@ -928,6 +934,12 @@ def zoned_du(parcels, parcels_zoning_calculations):
 
 
 @orca.column('parcels_zoning_calculations', cache=True)
+def zoned_du_vacant(parcels, parcels_zoning_calculations):
+    return parcels_zoning_calculations.effective_max_dua * \
+        parcels.parcel_acres * ~parcels.nodev * (parcels.total_sqft == 0)
+
+
+@orca.column('parcels_zoning_calculations', cache=True)
 def effective_max_dua(zoning_baseline, parcels, scenario):
 
     max_dua_from_far = zoning_baseline.max_far * 43560 / GROSS_AVE_UNIT_SIZE
@@ -937,22 +949,22 @@ def effective_max_dua(zoning_baseline, parcels, scenario):
 
     max_dua_from_height = max_far_from_height * 43560 / GROSS_AVE_UNIT_SIZE
 
-    s = pd.concat([
+    col = pd.concat([
         zoning_baseline.max_dua,
         max_dua_from_far,
         max_dua_from_height
     ], axis=1).min(axis=1)
 
     if scenario == "baseline":
-        return s
+        return col
 
     # take the max dua IFF the upzone value is greater than the current value
     # i.e. don't let the upzoning operation accidentally downzone
 
     scenario_max_dua = orca.get_table("zoning_scenario").dua_up
 
-    s = pd.concat([
-        s,
+    col = pd.concat([
+        col,
         scenario_max_dua
     ], axis=1).max(axis=1)
 
@@ -961,14 +973,14 @@ def effective_max_dua(zoning_baseline, parcels, scenario):
 
     scenario_min_dua = orca.get_table("zoning_scenario").dua_down
 
-    s = pd.concat([
-        s,
+    col = pd.concat([
+        col,
         scenario_min_dua
     ], axis=1).min(axis=1)
 
     s3 = parcel_is_allowed('residential')
 
-    return (s.fillna(0) * s3).reindex(parcels.index).fillna(0).astype('float')
+    return (col.fillna(0) * s3).reindex(parcels.index).fillna(0).astype('float')
 
 
 @orca.column('parcels_zoning_calculations', cache=True)
@@ -977,21 +989,21 @@ def effective_max_far(zoning_baseline, parcels, scenario):
     max_far_from_height = (zoning_baseline.max_height / HEIGHT_PER_STORY) * \
         PARCEL_USE_EFFICIENCY
 
-    s = pd.concat([
+    col = pd.concat([
         zoning_baseline.max_far,
         max_far_from_height
     ], axis=1).min(axis=1)
 
     if scenario == "baseline":
-        return s
+        return col
 
     # take the max far IFF the upzone value is greater than the current value
     # i.e. don't let the upzoning operation accidentally downzone
 
     scenario_max_far = orca.get_table("zoning_scenario").far_up
 
-    s = pd.concat([
-        s,
+    col = pd.concat([
+        col,
         scenario_max_far
     ], axis=1).max(axis=1)
 
@@ -1000,12 +1012,12 @@ def effective_max_far(zoning_baseline, parcels, scenario):
 
     scenario_min_far = orca.get_table("zoning_scenario").far_down
 
-    s = pd.concat([
-        s,
+    col = pd.concat([
+        col,
         scenario_min_far
     ], axis=1).min(axis=1)
 
-    return s.reindex(parcels.index).fillna(0).astype('float')
+    return col.reindex(parcels.index).fillna(0).astype('float')
 
 
 @orca.column('parcels_zoning_calculations', cache=True)
@@ -1024,33 +1036,33 @@ def effective_max_office_far(parcels_zoning_calculations):
 def zoned_du_underbuild(parcels, parcels_zoning_calculations):
     # subtract from zoned du, the total res units, but also the equivalent
     # of non-res sqft in res units
-    s = (parcels_zoning_calculations.zoned_du -
+    col = (parcels_zoning_calculations.zoned_du -
          parcels.total_residential_units -
          parcels.total_non_residential_sqft /
          GROSS_AVE_UNIT_SIZE).clip(lower=0)
-    ratio = (s / parcels.total_residential_units).replace(np.inf, 1)
+    ratio = (col / parcels.total_residential_units).replace(np.inf, 1)
     # if the ratio of additional units to existing units is not at least .5
     # we don't build it - I mean we're not turning a 10 story building into an
     # 11 story building
-    s = s[ratio > .5].reindex(parcels.index).fillna(0)
-    return s.astype('int')
+    col = col[ratio > .5].reindex(parcels.index).fillna(0)
+    return col.astype('int')
 
 
 @orca.column('parcels_zoning_calculations')
 def zoned_du_build_ratio(parcels, parcels_zoning_calculations):
     # ratio of existing res built space to zoned res built space
-    s = parcels.total_residential_units / \
+    col = parcels.total_residential_units / \
        (parcels_zoning_calculations.effective_max_dua * parcels.parcel_acres)
-    return s.replace(np.inf, 1).clip(0, 1)
+    return col.replace(np.inf, 1).clip(0, 1)
 
 
 @orca.column('parcels_zoning_calculations')
 def zoned_far_build_ratio(parcels, parcels_zoning_calculations):
     # ratio of existing nonres built space to zoned nonres built space
-    s = parcels.total_non_residential_sqft / \
+    col = parcels.total_non_residential_sqft / \
         (parcels_zoning_calculations.effective_max_far *
          parcels.parcel_size)
-    return s.replace(np.inf, 1).clip(0, 1)
+    return col.replace(np.inf, 1).clip(0, 1)
 
 
 @orca.column('parcels_zoning_calculations')

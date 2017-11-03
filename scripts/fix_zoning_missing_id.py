@@ -5,12 +5,13 @@ import os
 import datetime
 from urbansim.utils import misc
 from baus import datasources
+from datasources import DATA_DIR
 
 
 @orca.table('zcsv', cache=True)
 def zcsv():
-    df = pd.read_csv(os.path.join(misc.data_dir(),
-                     "2015_12_21_zoning_parcels.csv"),
+    df = pd.read_csv(os.path.join(DATA_DIR,
+                     "2017_01_01_zoning_parcels.shp"),
                      index_col="geom_id")
     return df
 
@@ -55,7 +56,7 @@ print "number of parcels with null values by city:"
 print null_df.tablename.value_counts()
 
 x = datetime.date.today()
-csvname = 'data/' + str(x.year) + '_' + str(x.month) + '_' + \
+csvname = 'coedata/' + str(x.year) + '_' + str(x.month) + '_' + \
     str(x.day) + '_zoning_parcels.csv'
 
 zdf.to_csv(csvname)

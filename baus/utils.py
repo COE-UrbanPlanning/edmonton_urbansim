@@ -143,7 +143,7 @@ def round_series_match_target(s, target, fillna=np.nan):
         return s
 
     s = s.fillna(fillna).round().astype('int')
-    diff = target - s.sum()
+    diff = target.astype('int') - s.sum()
 
     if diff > 0:
         # replace=True allows us to add even more than we have now
@@ -357,6 +357,19 @@ def compare_summary(df1, df2, index_names=None, pctdiff=10,
 
 class SimulationSummaryData(DefaultSimulationSummaryData):
     
+    def __init__(self,
+                 run_number,
+                 zone_indicator_file="runs/run{}_simulation_output.json",
+                 zone_indicator_shapefile="runs/run{}_simulation_output.shp",
+                 parcel_indicator_file="runs/run{}_parcel_output.csv"):
+        self.run_num = run_number
+        self.zone_indicator_file = zone_indicator_file.format(run_number)
+        self.zone_indicator_shapefile = zone_indicator_shapefile.format(run_number)
+        self.parcel_indicator_file = \
+            parcel_indicator_file.format(run_number)
+        self.parcel_output = None
+        self.zone_output = None
+    
     def add_zone_output(self, zones_df, name, year, round=2):
         """
         Pass in a dataframe and this function will store the results in the
@@ -406,7 +419,7 @@ class SimulationSummaryData(DefaultSimulationSummaryData):
 
         for col in zones_df.columns:
 #            d.setdefault(col, {})
-            if col == "geometry" or col == "ZONE_ID":
+            if col == "geometry" or col == "ZONE_ID" or col == "zone_id":
                 d[col] = zones_df[col]
                 continue
             d[col + "_original_df"] = name
@@ -431,6 +444,8 @@ class SimulationSummaryData(DefaultSimulationSummaryData):
             return
         
         store['results'] = pd.DataFrame(self.zone_output)
+        
+        self.zone_output.to_file(self.zone_indicator_shapefile)
         
         outf = open(self.zone_indicator_file, "w")
 #        json.dump(self.zone_output, outf, cls=MyEncoder)

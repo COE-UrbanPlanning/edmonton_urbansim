@@ -179,6 +179,8 @@ def policy_modifications_of_profit(feasibility, parcels):
     # this section adds inclusionary housing reduction in revenue
     revenue_reduction, num_affordable_units = \
         inclusionary_housing_revenue_reduction(feasibility, units)
+        
+    assert np.all(num_affordable_units <= units.fillna(0))
 
     print "Describe of inclusionary revenue reduction:\n", \
         revenue_reduction[revenue_reduction > 0].describe()
@@ -545,7 +547,7 @@ def run_subsidized_developer(feasibility, parcels, buildings, households,
             continue
 
         # step 7
-        df = df.sort(columns=['subsidy_per_unit'], ascending=True)
+        df = df.sort_values(['subsidy_per_unit'], ascending=True)
         # df.to_csv('subsidized_units_%d_%s_%s.csv' %
         #           (orca.get_injectable("year"), account.name, subacct))
 
@@ -619,6 +621,9 @@ def run_subsidized_developer(feasibility, parcels, buildings, households,
                 # round off for now
                 subsidized_units = int(subsidized_units) + \
                     already_subsidized_units
+                # cap at number of residential units
+                subsidized_units = min(subsidized_units,
+                                       new_building.residential_units)
 
                 buildings.local.loc[index, "deed_restricted_units"] =\
                     int(round(subsidized_units))
@@ -626,6 +631,9 @@ def run_subsidized_developer(feasibility, parcels, buildings, households,
                 # also correct the debug output
                 new_buildings.loc[index, "deed_restricted_units"] =\
                     int(round(subsidized_units))
+
+        assert np.all(buildings.local.deed_restricted_units.fillna(0) <=
+                      buildings.local.residential_units.fillna(0))
 
         print "Amount left after subsidy: ${:,.2f}".\
             format(account.total_transactions_by_subacct(subacct))

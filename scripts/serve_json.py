@@ -14,7 +14,7 @@ MAX_PARCELS_RETURNED = 5000
 
 print "Loading"
 
-store = pd.HDFStore('data/bayarea_v3.h5')
+store = pd.HDFStore('coedata/bayarea_v3.h5')
 
 flds = ['parcel_id', 'parcel_acres', 'total_residential_units',
         'total_job_spaces', 'x', 'y', 'pda']
