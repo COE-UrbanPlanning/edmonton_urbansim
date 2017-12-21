@@ -1,4 +1,4 @@
-### Installation
+### Installation Instructions
 To install (as shown in requirements.txt):
 1) get anaconda 3.6 and install
 2) clone this repo
@@ -23,6 +23,9 @@ NOTE: Of steps 6, 7, and 8, you might only have to do step 8.
       version of conda that installs libgdal, make sure its version number is 
       similar to the version number of gdal. Some versions don't seem to install 
       libgdal at all and work just fine. 
+      
+### User Interface
+To use the user interface, open a command prompt and navigate to the GUI folder in this repo. Enter UI.bat to run the user interface. From it, you can select any of the output shapefiles from the run folder to visualize.
 
 DRAFT Bay Area UrbanSim (BAUS) Implementation
 =======
