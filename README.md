@@ -11,6 +11,7 @@ To install (as shown in requirements.txt):
 9) conda config --add channels udst
 10) conda install pandana
 11) conda install urbansim // to solve cannot find utils
+
 run by calling `python baus.py &`
 
 NOTE: Of steps 6, 7, and 8, you might only have to do step 8.
