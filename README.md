@@ -1,3 +1,29 @@
+### Installation
+To install (as shown in requirements.txt):
+1) get anaconda 3.6 and install
+2) clone this repo
+3) conda install git
+4) pip install -r requirements.txt
+5) conda config --add channels conda-forge
+6) conda install gdal
+7) conda install fiona
+8) conda install geopandas 
+9) conda config --add channels udst
+10) conda install pandana
+11) conda install urbansim // to solve cannot find utils
+run by calling `python baus.py &`
+
+NOTE: Of steps 6, 7, and 8, you might only have to do step 8.
+      If you get any errors after doing just step 8, try steps 6 and 7.
+      Problems seem to come up because some versions of conda seem to install 
+      a version of libgdal that doesn't match the version of gdal and/or fiona
+      that are installed with geopandas, causing geopandas to not work.
+      If you're having troubles, try using the "conda list" command to see 
+      what versions of gdal, libgdal, and fiona you have installed. If you have a 
+      version of conda that installs libgdal, make sure its version number is 
+      similar to the version number of gdal. Some versions don't seem to install 
+      libgdal at all and work just fine. 
+
 DRAFT Bay Area UrbanSim (BAUS) Implementation
 =======
 
