@@ -4,7 +4,7 @@
 -e git+https://github.com/UDST/orca_test.git@02357bacc6a31e87b1476ff0f5b377a683e0c86a#egg=orca_test
 #-e git+https://github.com/UDST/pandana.git@8f24b8a1b7539c95b51153e9954f755a7116089b#egg=pandana
 # to install:
-# 1) get anaconda 3 and install
+# 1) get anaconda 3.6 and install
 # 2) clone this repo
 # 3) conda install git
 # 4) pip install -r requirements.txt
