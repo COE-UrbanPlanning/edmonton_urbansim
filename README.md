@@ -1,3 +1,5 @@
+It is recommended that you use the python3 branch of this repo
+
 ### Installation Instructions
 To install (as listed in requirements.txt):
 1) get anaconda 2.7 and install
