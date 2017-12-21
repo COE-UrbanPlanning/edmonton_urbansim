@@ -1,3 +1,22 @@
+### Installation Instructions
+To install (as listed in requirements.txt):
+1) get anaconda 2.7 and install
+2) clone this repo
+3) conda install git
+4) pip install -r requirements.txt
+5) conda config --add channels conda-forge
+6) conda install gdal
+7) conda install fiona
+8) conda install libgdal=2.1 # This step is only necessary as long as there's an issue between the fiona version of gdal and the default version of libgdal
+9) conda install geopandas
+10) conda config --add channels udst
+11) conda install pandana
+12) conda install urbansim // to solve cannot find utils
+run by calling `python baus.py &`
+
+### User Interface
+To use the user interface, open a command prompt and navigate to the GUI folder in this repo. Enter `UI.bat` to run the user interface. From it, you can select any of the output shapefiles from the run folder to visualize.
+
 DRAFT Bay Area UrbanSim (BAUS) Implementation
 =======
 
